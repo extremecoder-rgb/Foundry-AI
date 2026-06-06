@@ -19,8 +19,31 @@ export async function withRetry<T>(
       if (attempt >= options.retries) {
         throw error;
       }
-      console.warn(`[Resilience] Attempt ${attempt} failed. Retrying in ${delay}ms... Error:`, error.message);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      let waitTime = delay;
+      const errorMessage = error.message || '';
+      const isRateLimit = error.status === 429 || 
+                          errorMessage.includes('429') ||
+                          errorMessage.toLowerCase().includes('quota exceeded') ||
+                          errorMessage.toLowerCase().includes('resource_exhausted');
+
+      if (isRateLimit) {
+        const matchSec = errorMessage.match(/Please retry in (\d+\.?\d*)s/i);
+        const matchMs = errorMessage.match(/Please retry in (\d+\.?\d*)ms/i);
+        
+        if (matchSec) {
+          waitTime = Math.ceil(parseFloat(matchSec[1]) * 1000) + 1500; // wait extra 1.5s for safety
+        } else if (matchMs) {
+          waitTime = Math.ceil(parseFloat(matchMs[1])) + 1000;
+        } else {
+          waitTime = Math.max(delay, 30000); // default fallback to 30s
+        }
+        console.warn(`[Resilience] Quota exceeded. Parsing rate-limit backoff: waiting ${waitTime}ms before attempt ${attempt + 1}...`);
+      } else {
+        console.warn(`[Resilience] Attempt ${attempt} failed. Retrying in ${delay}ms... Error:`, errorMessage);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, waitTime));
       delay *= options.factor;
     }
   }

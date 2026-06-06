@@ -49,7 +49,28 @@ export class WebSearchTool extends BaseTool<
       });
 
       if (results.length === 0) {
-        // Fallback mock results if parsed page is empty or blocked
+        console.log(`[WebSearchTool] DuckDuckGo returned 0 results. Querying Wikipedia API...`);
+        try {
+          const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(input.query)}&format=json&origin=*`;
+          const wikiResponse = await axios.get(wikiUrl, { timeout: 4000 });
+          const wikiData = wikiResponse.data;
+          const wikiList = wikiData.query?.search || [];
+          
+          for (const item of wikiList.slice(0, 5)) {
+            const cleanSnippet = item.snippet.replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '').trim();
+            results.push({
+              title: item.title,
+              url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
+              snippet: cleanSnippet
+            });
+          }
+        } catch (wikiErr: any) {
+          console.warn('[WebSearchTool] Wikipedia fallback failed:', wikiErr.message);
+        }
+      }
+
+      if (results.length === 0) {
+        // Ultimate fallback mock results if everything fails
         return {
           results: [
             {

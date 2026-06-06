@@ -1,5 +1,6 @@
 import { ToolRegistry, AgentContext } from './types';
 import { GeminiProvider, ChatMessage, ChatPart } from './llm';
+import { withRetry, getRateLimiterForNamespace } from './resilience';
 
 export interface AgentConfig {
   name: string;
@@ -80,11 +81,23 @@ export class Agent {
           }
 
           try {
+            // A. Rate Limiting: Acquire token for the tool's namespace
+            const limiter = getRateLimiterForNamespace(tool.namespace);
+            await limiter.waitForToken();
+
             if (context.log) {
               await context.log('info', `Calling tool ${toolCall.name}`, { toolName: toolCall.name, toolInput: toolCall.args });
             }
 
-            const toolResult = await tool.execute(toolCall.args, context);
+            // B. Resilience: Execute tool with exponential backoff retry on failure
+            const toolResult = await withRetry(async () => {
+              return await tool.execute(toolCall.args, context);
+            }, {
+              retries: 3,
+              minTimeoutMs: 100, // Small timeout for test speed
+              factor: 2
+            });
+
             console.log(`[Agent ${this.name}] Tool ${toolCall.name} execution succeeded. Result:`, toolResult);
             responseParts.push({
               functionResponse: {

@@ -1,6 +1,7 @@
 import { ToolRegistry, AgentContext } from './types';
 import { GeminiProvider, ChatMessage, ChatPart } from './llm';
 import { withRetry, getRateLimiterForNamespace } from './resilience';
+import { AgentTracer } from './tracing';
 
 export interface AgentConfig {
   name: string;
@@ -23,133 +24,137 @@ export class Agent {
   }
 
   async run(input: string, context: AgentContext): Promise<any> {
-    console.log(`[Agent ${this.name}] Starting run ${context.runId} with input: ${input}`);
-    if (context.log) {
-      await context.log('info', `Agent ${this.name} started execution run`, { toolInput: { input } });
-    }
-
-    let iteration = 0;
-    const maxIterations = 25; // Supports 20+ tool calls requirement
-    let messages: ChatMessage[] = [
-      { role: 'user', parts: [{ text: input }] }
-    ];
-
-    while (iteration < maxIterations) {
-      iteration++;
-      console.log(`[Agent ${this.name}] Iteration ${iteration}`);
-
-      // 1. Condense history if it grows too long (to prevent context overflow and coherence loss)
-      if (messages.length > 10) {
-        messages = await this.summarizeHistory(messages);
+    return AgentTracer.traceCall(`Agent ${this.name} Run`, { runId: context.runId, agentName: this.name }, async (span) => {
+      console.log(`[Agent ${this.name}] Starting run ${context.runId} with input: ${input}`);
+      if (context.log) {
+        await context.log('info', `Agent ${this.name} started execution run`, { toolInput: { input } });
       }
 
-      // 2. Call Gemini model
-      const response = await this.llmProvider.generate(
-        messages,
-        this.systemPrompt,
-        this.toolRegistry.getAllTools()
-      );
+      let iteration = 0;
+      const maxIterations = 25; // Supports 20+ tool calls requirement
+      let messages: ChatMessage[] = [
+        { role: 'user', parts: [{ text: input }] }
+      ];
 
-      if (response.toolCalls && response.toolCalls.length > 0) {
-        // Model decided to call tools
-        const toolCallParts: ChatPart[] = [];
-        const responseParts: ChatPart[] = [];
+      while (iteration < maxIterations) {
+        iteration++;
+        console.log(`[Agent ${this.name}] Iteration ${iteration}`);
 
-        for (const toolCall of response.toolCalls) {
-          console.log(`[Agent ${this.name}] Model requested tool call: ${toolCall.name} with args:`, toolCall.args);
-          toolCallParts.push({
-            functionCall: {
-              name: toolCall.name,
-              args: toolCall.args
-            }
-          });
-
-          const tool = this.toolRegistry.getTool(toolCall.name);
-          if (!tool) {
-            const errorMsg = `Tool ${toolCall.name} not found in registry.`;
-            console.error(`[Agent ${this.name}] ${errorMsg}`);
-            responseParts.push({
-              functionResponse: {
-                name: toolCall.name,
-                response: { error: errorMsg }
-              }
-            });
-            if (context.log) {
-              await context.log('error', errorMsg, { toolName: toolCall.name, toolInput: toolCall.args, error: errorMsg });
-            }
-            continue;
-          }
-
-          try {
-            // A. Rate Limiting: Acquire token for the tool's namespace
-            const limiter = getRateLimiterForNamespace(tool.namespace);
-            await limiter.waitForToken();
-
-            if (context.log) {
-              await context.log('info', `Calling tool ${toolCall.name}`, { toolName: toolCall.name, toolInput: toolCall.args });
-            }
-
-            // B. Resilience: Execute tool with exponential backoff retry on failure
-            const toolResult = await withRetry(async () => {
-              return await tool.execute(toolCall.args, context);
-            }, {
-              retries: 3,
-              minTimeoutMs: 100, // Small timeout for test speed
-              factor: 2
-            });
-
-            console.log(`[Agent ${this.name}] Tool ${toolCall.name} execution succeeded. Result:`, toolResult);
-            responseParts.push({
-              functionResponse: {
-                name: toolCall.name,
-                response: toolResult
-              }
-            });
-
-            if (context.log) {
-              await context.log('info', `Tool ${toolCall.name} finished successfully`, { toolName: toolCall.name, toolInput: toolCall.args, toolOutput: toolResult });
-            }
-          } catch (error: any) {
-            console.error(`[Agent ${this.name}] Tool ${toolCall.name} execution failed. Error:`, error.message);
-            responseParts.push({
-              functionResponse: {
-                name: toolCall.name,
-                response: { error: error.message }
-              }
-            });
-
-            if (context.log) {
-              await context.log('error', `Tool ${toolCall.name} failed: ${error.message}`, { toolName: toolCall.name, toolInput: toolCall.args, error: error.message });
-            }
-          }
+        // 1. Condense history if it grows too long (to prevent context overflow and coherence loss)
+        if (messages.length > 10) {
+          messages = await this.summarizeHistory(messages);
         }
 
-        // Save tool request and response to history
-        messages.push({ role: 'model', parts: toolCallParts });
-        messages.push({ role: 'user', parts: responseParts });
-        
-        // Continue loop to send tool responses back to model
-        continue;
+        // 2. Call Gemini model
+        const response = await this.llmProvider.generate(
+          messages,
+          this.systemPrompt,
+          this.toolRegistry.getAllTools()
+        );
+
+        if (response.toolCalls && response.toolCalls.length > 0) {
+          // Model decided to call tools
+          const toolCallParts: ChatPart[] = [];
+          const responseParts: ChatPart[] = [];
+
+          for (const toolCall of response.toolCalls) {
+            console.log(`[Agent ${this.name}] Model requested tool call: ${toolCall.name} with args:`, toolCall.args);
+            toolCallParts.push({
+              functionCall: {
+                name: toolCall.name,
+                args: toolCall.args
+              }
+            });
+
+            const tool = this.toolRegistry.getTool(toolCall.name);
+            if (!tool) {
+              const errorMsg = `Tool ${toolCall.name} not found in registry.`;
+              console.error(`[Agent ${this.name}] ${errorMsg}`);
+              responseParts.push({
+                functionResponse: {
+                  name: toolCall.name,
+                  response: { error: errorMsg }
+                }
+              });
+              if (context.log) {
+                await context.log('error', errorMsg, { toolName: toolCall.name, toolInput: toolCall.args, error: errorMsg });
+              }
+              continue;
+            }
+
+            try {
+              // A. Rate Limiting: Acquire token for the tool's namespace
+              const limiter = getRateLimiterForNamespace(tool.namespace);
+              await limiter.waitForToken();
+
+              if (context.log) {
+                await context.log('info', `Calling tool ${toolCall.name}`, { toolName: toolCall.name, toolInput: toolCall.args });
+              }
+
+              // B. Resilience: Execute tool with exponential backoff retry on failure
+              const toolResult = await withRetry(async () => {
+                return await AgentTracer.traceCall(`Tool ${toolCall.name} Execute`, { toolName: toolCall.name }, async () => {
+                  return await tool.execute(toolCall.args, context);
+                });
+              }, {
+                retries: 3,
+                minTimeoutMs: 100, // Small timeout for test speed
+                factor: 2
+              });
+
+              console.log(`[Agent ${this.name}] Tool ${toolCall.name} execution succeeded. Result:`, toolResult);
+              responseParts.push({
+                functionResponse: {
+                  name: toolCall.name,
+                  response: toolResult
+                }
+              });
+
+              if (context.log) {
+                await context.log('info', `Tool ${toolCall.name} finished successfully`, { toolName: toolCall.name, toolInput: toolCall.args, toolOutput: toolResult });
+              }
+            } catch (error: any) {
+              console.error(`[Agent ${this.name}] Tool ${toolCall.name} execution failed. Error:`, error.message);
+              responseParts.push({
+                functionResponse: {
+                  name: toolCall.name,
+                  response: { error: error.message }
+                }
+              });
+
+              if (context.log) {
+                await context.log('error', `Tool ${toolCall.name} failed: ${error.message}`, { toolName: toolCall.name, toolInput: toolCall.args, error: error.message });
+              }
+            }
+          }
+
+          // Save tool request and response to history
+          messages.push({ role: 'model', parts: toolCallParts });
+          messages.push({ role: 'user', parts: responseParts });
+          
+          // Continue loop to send tool responses back to model
+          continue;
+        }
+
+        // No tool calls, we have the final output
+        console.log(`[Agent ${this.name}] Execution finished with response: ${response.content}`);
+        if (context.log) {
+          await context.log('info', `Agent ${this.name} finished execution successfully`, { toolOutput: { content: response.content } });
+        }
+
+        return {
+          status: 'success',
+          content: response.content,
+          iterations: iteration
+        };
       }
 
-      // No tool calls, we have the final output
-      console.log(`[Agent ${this.name}] Execution finished with response: ${response.content}`);
+      const maxExceededError = `Agent ${this.name} exceeded maximum iterations (${maxIterations}) without reaching a final answer.`;
       if (context.log) {
-        await context.log('info', `Agent ${this.name} finished execution successfully`, { toolOutput: { content: response.content } });
+        await context.log('error', maxExceededError, { error: maxExceededError });
       }
-
-      return {
-        status: 'success',
-        content: response.content,
-        iterations: iteration
-      };
-    }
-
-    const maxExceededError = `Agent ${this.name} exceeded maximum iterations (${maxIterations}) without reaching a final answer.`;
-    if (context.log) {
-      await context.log('error', maxExceededError, { error: maxExceededError });
-    }
-    throw new Error(maxExceededError);
+      throw new Error(maxExceededError);
+    });
   }
 
   private async summarizeHistory(messages: ChatMessage[]): Promise<ChatMessage[]> {

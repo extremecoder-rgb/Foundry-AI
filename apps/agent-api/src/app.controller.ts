@@ -17,20 +17,8 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Post('run')
-  async runAgent(@Body('concept') concept: string) {
-    const logs: { timestamp: string; level: string; message: string; meta?: any }[] = [];
-    const logCallback = async (level: string, message: string, meta?: any) => {
-      logs.push({
-        timestamp: new Date().toISOString(),
-        level,
-        message,
-        meta
-      });
-    };
-
+  private buildToolRegistry(): ToolRegistry {
     const registry = new ToolRegistry();
-    // Register all tools across all namespaces (60 total)
     // System
     registry.registerTool(new ReadFileTool());
     registry.registerTool(new WriteFileTool());
@@ -100,6 +88,37 @@ export class AppController {
     registry.registerTool(new MarketingBudgetPlanTool());
     registry.registerTool(new EstimateValuationTool());
     registry.registerTool(new SimulateTaxScenariosTool());
+    
+    return registry;
+  }
+
+  @Get('tools')
+  getTools() {
+    const registry = this.buildToolRegistry();
+    const tools = registry.getAllTools().map(t => ({
+      name: t.name,
+      description: t.description,
+      namespace: t.namespace
+    }));
+    return {
+      count: tools.length,
+      tools
+    };
+  }
+
+  @Post('run')
+  async runAgent(@Body('concept') concept: string) {
+    const logs: { timestamp: string; level: string; message: string; meta?: any }[] = [];
+    const logCallback = async (level: string, message: string, meta?: any) => {
+      logs.push({
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        meta
+      });
+    };
+
+    const registry = this.buildToolRegistry();
 
     const envPaths = [
       require('path').resolve(__dirname, '../../../.env'),

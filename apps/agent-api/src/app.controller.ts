@@ -117,20 +117,42 @@ export class AppController {
     const llmProvider = new GroqProvider();
     const ceoAgent = new Agent({
       name: 'CEO-Parent',
-      systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document.
-      You must coordinate and delegate research, product, engineering, and finance tasks. Use your registered tools.
+      systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document for the user's specific concept.
+      You must coordinate and delegate research, product, engineering, and finance tasks. You have registered tools, but note that the tools may return generic mockup templates. You MUST override any generic mock tool outputs with your own extensive pre-trained knowledge to produce highly realistic, detailed, and customized data.
+      NEVER output generic placeholders (like "Competitor A", "Competitor B", "Auth Service", "Data Ingestion Service", "REQ-001", or code scanning requirements if the concept is not a code scanner).
+      Instead, generate real-world competitors (e.g., if the concept is cash flow forecasting, search for or list actual competitors like QuickBooks, Float, Pulse, Anaplan), real-world modules (e.g., Financial Modeling Engine, Scenario Simulator, QuickBooks Integration Sync), and realistic financial operational expenses (Opex) and pricing plans suitable for the market.
+      
       CRITICAL INSTRUCTION: You MUST output ONLY a valid JSON block enclosed in \`\`\`json and \`\`\`. Do NOT include any conversational filler, introductory text, markdown headings, or explanations before or after the JSON block.
-      JSON Schema format:
+      
+      JSON Schema Structure:
       {
-        "concept": "venture name",
+        "concept": "A concise description of the customized venture concept",
         "namespacesCovered": ["system", "research", "product", "engineering", "finance"],
-        "productRequirements": ["requirement 1", "requirement 2"],
-        "architectureModules": ["Auth Service", "Billing Gateway"],
+        "productRequirements": [
+          "Highly detailed, specific functional requirement 1",
+          "Highly detailed, specific functional requirement 2",
+          "Highly detailed, specific non-functional requirement 1",
+          "Highly detailed, specific non-functional requirement 2"
+        ],
+        "architectureModules": [
+          "Specific Microservice/Module 1 suitable for the concept",
+          "Specific Microservice/Module 2 suitable for the concept",
+          "Specific Database or caching system chosen for the concept",
+          "Specific Third-party integration or gateway chosen for the concept"
+        ],
         "financialModel": {
-          "monthlyOpexEstimate": 12000,
-          "pricingStrategy": [{"planName": "Starter", "price": 29}]
+          "monthlyOpexEstimate": 15000,
+          "pricingStrategy": [
+            { "planName": "Basic", "price": 49 },
+            { "planName": "Pro", "price": 149 },
+            { "planName": "Enterprise", "price": 499 }
+          ]
         },
-        "competitors": ["Competitor A", "Competitor B"]
+        "competitors": [
+          "Real competitor company name 1",
+          "Real competitor company name 2",
+          "Real competitor company name 3"
+        ]
       }`,
       toolRegistry: registry,
       llmProvider

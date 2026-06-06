@@ -1,4 +1,4 @@
-import { ToolRegistry, withRetry, RateLimiter, AgentTracer } from '@foundry/agent-core';
+import { ToolRegistry, withRetry, RateLimiter, AgentTracer, EvaluationHarness } from '@foundry/agent-core';
 import { ReadFileTool, WriteFileTool, ListDirTool, SearchDirTool, FileMetadataTool, MakeDirTool, DeleteFileTool, CheckDiskSpaceTool, GetEnvTool, RenameFileTool, ZipFolderTool, UnzipFolderTool } from '@foundry/tools-system';
 import { WebSearchTool, ScrapeUrlTool, AnalyzeTrendsTool, CompetitorAnalysisTool, SearchTrendsTool, GetNewsTool, FindProductHuntTool, CrawlSiteTool, ExtractEmailTool, CheckDomainNameTool, AnalyzeSentimentTool, SummarizeArticleTool } from '@foundry/tools-research';
 import { DefineRequirementsTool, WriteUserStoriesTool, DesignWireframeSpecTool, MapUserJourneyTool, PrioritizeBacklogTool, DefinePersonaTool, DrawFlowchartTool, CompareFeaturesTool, EstimateVelocityTool, WriteReleaseNotesTool, CalculateNpsTool, MapCustomerJourneyTool } from '@foundry/tools-product';
@@ -159,6 +159,54 @@ describe('Venture Studio Tool Registry Integration', () => {
       });
 
       expect(result).toBe('traced-val');
+    });
+  });
+
+  describe('Evaluation Harness: Venture Blueprint Grading', () => {
+    it('should grade a comprehensive blueprint with 100% score', () => {
+      const blueprint = {
+        concept: 'SaaS code reviews platform',
+        namespacesCovered: ['system', 'research', 'product', 'engineering', 'finance'],
+        productRequirements: ['Feature A', 'Feature B'],
+        architectureModules: ['Auth Service', 'Gateway'],
+        financialModel: {
+          monthlyOpexEstimate: 12000,
+          pricingStrategy: [{ planName: 'Starter', price: 29 }, { planName: 'Pro', price: 99 }]
+        },
+        competitors: ['Reviewable.io']
+      };
+
+      const goldStandard = {
+        financialModel: {
+          monthlyOpexEstimate: 15000,
+          pricingStrategy: [{ planName: 'Starter', price: 30 }]
+        }
+      };
+
+      const result = EvaluationHarness.evaluate(blueprint, goldStandard);
+      expect(result.score).toBe(100);
+      expect(result.criteria.completeness).toBe(true);
+      expect(result.criteria.hasPricing).toBe(true);
+      expect(result.criteria.hasOpex).toBe(true);
+    });
+
+    it('should penalize blueprints with missing sections', () => {
+      const blueprint = {
+        concept: 'Simple website',
+        namespacesCovered: ['system', 'research', 'product'], // missing engineering, finance
+        productRequirements: ['Feature A'],
+        architectureModules: [],
+        financialModel: {
+          monthlyOpexEstimate: 0,
+          pricingStrategy: []
+        },
+        competitors: []
+      };
+
+      const result = EvaluationHarness.evaluate(blueprint, {});
+      expect(result.score).toBeLessThan(50);
+      expect(result.criteria.completeness).toBe(false);
+      expect(result.feedback.length).toBeGreaterThan(0);
     });
   });
 });

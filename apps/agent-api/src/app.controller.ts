@@ -114,7 +114,7 @@ export class AppController {
       }
     }
 
-    const llmProvider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY || 'mock-key' });
+    const llmProvider = new GeminiProvider();
     const ceoAgent = new Agent({
       name: 'CEO-Parent',
       systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document.

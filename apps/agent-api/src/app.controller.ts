@@ -101,6 +101,19 @@ export class AppController {
     registry.registerTool(new EstimateValuationTool());
     registry.registerTool(new SimulateTaxScenariosTool());
 
+    const envPaths = [
+      require('path').resolve(__dirname, '../../../.env'),
+      require('path').resolve(__dirname, '../../../../.env'),
+      require('path').resolve(process.cwd(), '../../.env'),
+      require('path').resolve(process.cwd(), '.env')
+    ];
+    for (const p of envPaths) {
+      if (require('fs').existsSync(p)) {
+        require('dotenv').config({ path: p });
+        break;
+      }
+    }
+
     const llmProvider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY || 'mock-key' });
     const ceoAgent = new Agent({
       name: 'CEO-Parent',

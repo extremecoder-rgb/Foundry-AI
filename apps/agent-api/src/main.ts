@@ -1,6 +1,18 @@
 import * as dotenv from 'dotenv';
-import { join } from 'path';
-dotenv.config({ path: join(process.cwd(), '.env') }); // load root .env
+import * as fs from 'fs';
+import * as path from 'path';
+const envPaths = [
+  path.resolve(__dirname, '../../../.env'), // ts-node-dev
+  path.resolve(__dirname, '../../../../.env'), // dist
+  path.resolve(process.cwd(), '../../.env'), // fallback workspace
+  path.resolve(process.cwd(), '.env') // fallback root
+];
+for (const p of envPaths) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p });
+    break;
+  }
+}
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 

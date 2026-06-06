@@ -3,6 +3,11 @@ import { z } from 'zod';
 export interface AgentContext {
   runId: string;
   metadata?: Record<string, any>;
+  log?: (
+    level: 'info' | 'warn' | 'error',
+    message: string,
+    detail?: { toolName?: string; toolInput?: any; toolOutput?: any; error?: string }
+  ) => Promise<void>;
 }
 
 export abstract class BaseTool<TInput = any, TOutput = any> {

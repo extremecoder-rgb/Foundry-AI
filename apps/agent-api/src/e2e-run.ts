@@ -22,7 +22,7 @@ async function bootstrap() {
   registry.registerTool(new PriceStrategyTool());
 
   // 2. Initialize LLM Provider (Using mock/test setup or standard env API Key)
-  const llmProvider = new GeminiProvider(process.env.GEMINI_API_KEY || 'mock-key');
+  const llmProvider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY || 'mock-key' });
 
   // 3. Initialize CEO Agent
   const ceoAgent = new Agent({

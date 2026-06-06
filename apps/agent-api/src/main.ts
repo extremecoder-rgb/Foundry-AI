@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+import { join } from 'path';
+dotenv.config({ path: join(process.cwd(), '.env') }); // load root .env
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 

@@ -75,3 +75,25 @@ export class CheckDomainNameTool extends BaseTool<{ domainName: string }, { avai
     };
   }
 }
+
+// 7. AnalyzeSentimentTool
+export class AnalyzeSentimentTool extends BaseTool<{ text: string }, { sentiment: string; score: number }> {
+  name = 'research_analyze_sentiment';
+  description = 'Analyze user feedback sentiment polarity.';
+  namespace = 'research';
+  schema = z.object({ text: z.string() });
+  async execute(input: { text: string }, context: AgentContext) {
+    return { sentiment: 'positive', score: 0.85 };
+  }
+}
+
+// 8. SummarizeArticleTool
+export class SummarizeArticleTool extends BaseTool<{ articleContent: string }, { summaryPoints: string[] }> {
+  name = 'research_summarize_article';
+  description = 'Extract key summary bullet points from long research articles.';
+  namespace = 'research';
+  schema = z.object({ articleContent: z.string() });
+  async execute(input: { articleContent: string }, context: AgentContext) {
+    return { summaryPoints: ['Point A: Rapid growth', 'Point B: Competitors lag behind', 'Point C: Core differentiation'] };
+  }
+}

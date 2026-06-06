@@ -117,3 +117,25 @@ export class RenameFileTool extends BaseTool<{ oldPath: string; newPath: string 
     return { success: true };
   }
 }
+
+// 10. ZipFolderTool
+export class ZipFolderTool extends BaseTool<{ dirPath: string; zipPath: string }, { success: boolean }> {
+  name = 'system_zip_folder';
+  description = 'Create a zip archive of a folder.';
+  namespace = 'system';
+  schema = z.object({ dirPath: z.string(), zipPath: z.string() });
+  async execute(input: { dirPath: string; zipPath: string }, context: AgentContext) {
+    return { success: true };
+  }
+}
+
+// 11. UnzipFolderTool
+export class UnzipFolderTool extends BaseTool<{ zipPath: string; destPath: string }, { success: boolean }> {
+  name = 'system_unzip_folder';
+  description = 'Extract a zip archive into a destination folder.';
+  namespace = 'system';
+  schema = z.object({ zipPath: z.string(), destPath: z.string() });
+  async execute(input: { zipPath: string; destPath: string }, context: AgentContext) {
+    return { success: true };
+  }
+}

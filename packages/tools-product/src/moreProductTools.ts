@@ -93,3 +93,28 @@ export class WriteReleaseNotesTool extends BaseTool<{ featuresAdded: string[] },
     };
   }
 }
+
+// 8. CalculateNpsTool
+export class CalculateNpsTool extends BaseTool<{ promoters: number; detractors: number; passives: number }, { nps: number }> {
+  name = 'product_calculate_nps';
+  description = 'Calculate Net Promoter Score based on customer surveys response levels.';
+  namespace = 'product';
+  schema = z.object({ promoters: z.number(), detractors: z.number(), passives: z.number() });
+  async execute(input: { promoters: number; detractors: number; passives: number }, context: AgentContext) {
+    const total = input.promoters + input.detractors + input.passives;
+    if (total === 0) return { nps: 0 };
+    const nps = ((input.promoters - input.detractors) / total) * 100;
+    return { nps: Math.round(nps) };
+  }
+}
+
+// 9. MapCustomerJourneyTool
+export class MapCustomerJourneyTool extends BaseTool<{ stages: string[] }, { journeyOutline: string }> {
+  name = 'product_map_customer_journey';
+  description = 'Detail and document stages of user activation and marketing engagement funnels.';
+  namespace = 'product';
+  schema = z.object({ stages: z.array(z.string()) });
+  async execute(input: { stages: string[] }, context: AgentContext) {
+    return { journeyOutline: `Journey stages: ${input.stages.join(' -> ')}` };
+  }
+}

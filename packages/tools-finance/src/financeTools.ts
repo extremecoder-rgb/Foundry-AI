@@ -160,3 +160,28 @@ export class MarketingBudgetPlanTool extends BaseTool<{ targetAcquisitions: numb
     };
   }
 }
+
+// 11. EstimateValuationTool
+export class EstimateValuationTool extends BaseTool<{ revenue: number; multiple: number }, { estimatedValuation: number }> {
+  name = 'finance_estimate_valuation';
+  description = 'Run multiple-based valuation outline estimation for ventures.';
+  namespace = 'finance';
+  schema = z.object({ revenue: z.number(), multiple: z.number() });
+  async execute(input: { revenue: number; multiple: number }, context: AgentContext) {
+    return { estimatedValuation: input.revenue * input.multiple };
+  }
+}
+
+// 12. SimulateTaxScenariosTool
+export class SimulateTaxScenariosTool extends BaseTool<{ netIncome: number }, { lowTaxScenario: number; highTaxScenario: number }> {
+  name = 'finance_simulate_tax_scenarios';
+  description = 'Simulate corporate tax burden variations under different brackets scenarios.';
+  namespace = 'finance';
+  schema = z.object({ netIncome: z.number() });
+  async execute(input: { netIncome: number }, context: AgentContext) {
+    return {
+      lowTaxScenario: Math.round(input.netIncome * 0.15),
+      highTaxScenario: Math.round(input.netIncome * 0.30)
+    };
+  }
+}

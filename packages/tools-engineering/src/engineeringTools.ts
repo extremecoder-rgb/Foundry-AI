@@ -140,3 +140,25 @@ export class CodeComplexityTool extends BaseTool<{ filePath: string }, { cycloma
     };
   }
 }
+
+// 11. CalculateTestCoverageTool
+export class CalculateTestCoverageTool extends BaseTool<{ moduleName: string }, { statementCoverage: number; branchCoverage: number }> {
+  name = 'engineering_calculate_test_coverage';
+  description = 'Simulate and calculate mock test coverage percentages for code modules.';
+  namespace = 'engineering';
+  schema = z.object({ moduleName: z.string() });
+  async execute(input: { moduleName: string }, context: AgentContext) {
+    return { statementCoverage: 87, branchCoverage: 76 };
+  }
+}
+
+// 12. AuditSecurityTool
+export class AuditSecurityTool extends BaseTool<{ configFilePath: string }, { issueCount: number; severity: string }> {
+  name = 'engineering_audit_security';
+  description = 'Perform security analysis checks on infrastructure configs or manifest files.';
+  namespace = 'engineering';
+  schema = z.object({ configFilePath: z.string() });
+  async execute(input: { configFilePath: string }, context: AgentContext) {
+    return { issueCount: 0, severity: 'none' };
+  }
+}

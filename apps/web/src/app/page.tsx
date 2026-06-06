@@ -92,8 +92,9 @@ export default function Home() {
   const parseBlueprint = (text?: string): BlueprintData | null => {
     if (!text) return null;
     try {
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/({[\s\S]*})/);
-      const rawJson = jsonMatch ? jsonMatch[1] : text;
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/{[\s\S]*}/);
+      if (!jsonMatch) return null;
+      const rawJson = jsonMatch[1] || jsonMatch[0];
       return JSON.parse(rawJson.trim());
     } catch (e) {
       console.error('Failed to parse blueprint JSON:', e);
@@ -259,12 +260,12 @@ export default function Home() {
             </div>
 
             <script>
-              window.onload = function() {
+              setTimeout(() => {
                 window.print();
                 setTimeout(() => {
                   window.close();
                 }, 500);
-              }
+              }, 250);
             </script>
           </body>
         </html>
@@ -288,12 +289,12 @@ export default function Home() {
           <body>
             ${result.blueprint}
             <script>
-              window.onload = function() {
+              setTimeout(() => {
                 window.print();
                 setTimeout(() => {
                   window.close();
                 }, 500);
-              }
+              }, 250);
             </script>
           </body>
         </html>
@@ -807,7 +808,8 @@ const styles: Record<string, React.CSSProperties> = {
   tabBtn: {
     borderRadius: '0px',
     padding: '0.6rem 1.2rem',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    color: '#000000'
   },
   pdfBtn: {
     background: '#ff7a00',

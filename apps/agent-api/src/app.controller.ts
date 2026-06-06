@@ -158,7 +158,7 @@ export class AppController {
       };
 
       try {
-        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || responseContent.match(/{[\s\S]*?}/);
+        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || responseContent.match(/{[\s\S]*}/);
         if (jsonMatch) {
           const jsonText = jsonMatch[1] || jsonMatch[0];
           parsedBlueprint = JSON.parse(jsonText.trim());

@@ -106,7 +106,19 @@ export class AppController {
       name: 'CEO-Parent',
       systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document.
       You must coordinate and delegate research, product, engineering, and finance tasks. Use your registered tools.
-      Always end with a final structured blueprint summary containing the final architecture, pricing strategy, monthly opex, list of competitors, and target concept.`,
+      You MUST end your output with a valid JSON block enclosed in \`\`\`json and \`\`\` containing the parsed blueprint fields so the evaluation harness can read it.
+      JSON Schema format:
+      {
+        "concept": "venture name",
+        "namespacesCovered": ["system", "research", "product", "engineering", "finance"],
+        "productRequirements": ["requirement 1", "requirement 2"],
+        "architectureModules": ["Auth Service", "Billing Gateway"],
+        "financialModel": {
+          "monthlyOpexEstimate": 12000,
+          "pricingStrategy": [{"planName": "Starter", "price": 29}]
+        },
+        "competitors": ["Competitor A", "Competitor B"]
+      }`,
       toolRegistry: registry,
       llmProvider
     });
@@ -118,20 +130,32 @@ export class AppController {
 
     try {
       await logCallback('info', `CEO-Parent run started with concept: "${concept}"`);
-      const response = await ceoAgent.run(`Generate a full venture blueprint document for: ${concept}`, context);
+      const response = await ceoAgent.run(`Generate a full venture blueprint document for: ${concept}. Remember to end with the \`\`\`json block.`, context);
 
-      // Perform a mock/static evaluation grading for demo based on generated outputs
-      const mockGeneratedBlueprint = {
+      const responseContent = response.content || '';
+      
+      // Attempt to parse the JSON block dynamically
+      let parsedBlueprint: any = {
         concept: concept,
-        namespacesCovered: ['system', 'research', 'product', 'engineering', 'finance'],
-        productRequirements: ['User onboarding workflow', 'Settings dashboard configuration'],
-        architectureModules: ['Auth Service', 'Relational DB Engine', 'Notifications Worker'],
-        financialModel: {
-          monthlyOpexEstimate: 14000,
-          pricingStrategy: [{ planName: 'Starter', price: 29 }, { planName: 'Pro', price: 99 }]
-        },
-        competitors: ['Incumbent-A', 'Startup-B']
+        namespacesCovered: ['system'],
+        productRequirements: [],
+        architectureModules: [],
+        financialModel: { monthlyOpexEstimate: 0, pricingStrategy: [] },
+        competitors: []
       };
+
+      try {
+        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || responseContent.match(/{[\s\S]*?}/);
+        if (jsonMatch) {
+          const jsonText = jsonMatch[1] || jsonMatch[0];
+          parsedBlueprint = JSON.parse(jsonText.trim());
+          await logCallback('info', `Successfully parsed dynamic JSON blueprint for evaluation.`);
+        } else {
+          await logCallback('warn', `Could not find JSON block in agent response. Falling back to default structural grading.`);
+        }
+      } catch (parseError: any) {
+        await logCallback('warn', `Failed to parse agent JSON block: ${parseError.message}. Using default structural grading.`);
+      }
 
       const goldStandard = {
         financialModel: {
@@ -140,12 +164,12 @@ export class AppController {
         }
       };
 
-      const evalResult = EvaluationHarness.evaluate(mockGeneratedBlueprint, goldStandard);
+      const evalResult = EvaluationHarness.evaluate(parsedBlueprint, goldStandard);
 
       return {
         success: true,
         runId: context.runId,
-        blueprint: response.content || response,
+        blueprint: responseContent,
         evaluation: evalResult,
         logs
       };

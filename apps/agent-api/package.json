@@ -26,6 +26,8 @@
     "@foundry/agent-core": "*",
     "@foundry/tools-system": "*",
     "@foundry/db": "*",
+    "@foundry/tools-research": "*",
+    "@foundry/tools-product": "*",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

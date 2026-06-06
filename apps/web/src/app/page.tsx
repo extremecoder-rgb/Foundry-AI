@@ -42,6 +42,147 @@ interface BlueprintData {
   competitors: string[];
 }
 
+// Colors for each module box
+const MODULE_COLORS = ['#facc15','#a3e635','#67e8f9','#f9a8d4','#c4b5fd','#fdba74','#86efac','#fca5a5','#93c5fd'];
+
+function ArchitectureFlowchart({ modules }: { modules: string[] }) {
+  const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
+  const [animStep, setAnimStep] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setAnimStep(s => (s + 1) % Math.max(modules.length, 1));
+    }, 900);
+    return () => clearInterval(timer);
+  }, [modules.length]);
+
+  const cols = Math.min(modules.length, 3);
+  const rows = Math.ceil(modules.length / cols);
+  const BOX_W = 200, BOX_H = 60, GAP_X = 60, GAP_Y = 70;
+  const totalW = cols * BOX_W + (cols - 1) * GAP_X + 40;
+  const totalH = rows * BOX_H + (rows - 1) * GAP_Y + 120;
+
+  const getPos = (i: number) => ({
+    x: 20 + (i % cols) * (BOX_W + GAP_X),
+    y: 70 + Math.floor(i / cols) * (BOX_H + GAP_Y),
+  });
+
+  const arrows: React.ReactElement[] = [];
+  for (let i = 0; i < modules.length - 1; i++) {
+    const from = getPos(i);
+    const to = getPos(i + 1);
+    const x1 = from.x + BOX_W / 2;
+    const y1 = from.y + BOX_H;
+    const x2 = to.x + BOX_W / 2;
+    const y2 = to.y;
+    const isSameRow = Math.floor(i / cols) === Math.floor((i + 1) / cols);
+    const isActive = animStep === i;
+    const color = isActive ? '#000000' : '#9ca3af';
+    const strokeW = isActive ? 2.5 : 1.5;
+
+    if (isSameRow) {
+      arrows.push(
+        <line key={`arrow-${i}`}
+          x1={from.x + BOX_W} y1={from.y + BOX_H / 2}
+          x2={to.x} y2={to.y + BOX_H / 2}
+          stroke={color} strokeWidth={strokeW} markerEnd="url(#arrowhead)"
+          style={{ transition: 'stroke 0.3s, stroke-width 0.3s' }}
+        />
+      );
+    } else {
+      arrows.push(
+        <path key={`arrow-${i}`}
+          d={`M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`}
+          fill="none" stroke={color} strokeWidth={strokeW} markerEnd="url(#arrowhead)"
+          style={{ transition: 'stroke 0.3s, stroke-width 0.3s' }}
+        />
+      );
+    }
+  }
+
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#4b5563' }}>
+          ⚡ Live Data Flow — {modules.length} Modules
+        </span>
+        <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: '600' }}>Hover a module to inspect. Animated flow shows system orchestration path.</span>
+      </div>
+      <svg width={totalW} height={totalH} style={{ display: 'block', minWidth: '100%' }}>
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#000000" />
+          </marker>
+          {modules.map((_, i) => (
+            <filter key={`glow-${i}`} id={`glow-${i}`} x="-20%" y="-30%" width="140%" height="160%">
+              <feDropShadow dx="3" dy="3" stdDeviation="0" floodColor="#000000" />
+            </filter>
+          ))}
+        </defs>
+
+        {/* Entry point label */}
+        <text x={20 + BOX_W / 2} y={40} textAnchor="middle" fontSize="11" fontWeight="700" fill="#6b7280" fontFamily="'Space Grotesk', sans-serif">USER REQUEST</text>
+        <line x1={20 + BOX_W / 2} y1={44} x2={20 + BOX_W / 2} y2={66} stroke="#9ca3af" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
+
+        {arrows}
+
+        {modules.map((mod, i) => {
+          const pos = getPos(i);
+          const isActive = animStep === i;
+          const isHovered = hoveredIdx === i;
+          const color = MODULE_COLORS[i % MODULE_COLORS.length];
+          const tx = pos.x + BOX_W / 2;
+          const ty = pos.y + BOX_H / 2;
+          const label = mod.length > 26 ? mod.substring(0, 24) + '…' : mod;
+
+          return (
+            <g key={i} style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
+            >
+              <rect
+                x={pos.x + (isActive || isHovered ? -4 : 0)}
+                y={pos.y + (isActive || isHovered ? -4 : 0)}
+                width={BOX_W}
+                height={BOX_H}
+                rx="0"
+                fill={color}
+                stroke="#000000"
+                strokeWidth={isActive || isHovered ? 3 : 2}
+                filter={isActive || isHovered ? `url(#glow-${i})` : undefined}
+                style={{ transition: 'all 0.25s ease' }}
+              />
+              <text x={tx} y={ty - 4} textAnchor="middle" fontSize="10" fontWeight="800" fill="#000000"
+                fontFamily="'Space Grotesk', sans-serif">
+                {`${String(i + 1).padStart(2, '0')} —`}
+              </text>
+              <text x={tx} y={ty + 10} textAnchor="middle" fontSize="10" fontWeight="700" fill="#000000"
+                fontFamily="'Plus Jakarta Sans', sans-serif">
+                {label}
+              </text>
+
+              {isHovered && (
+                <g>
+                  <rect x={pos.x} y={pos.y + BOX_H + 8} width={BOX_W + 60} height={36}
+                    fill="#000000" rx="2" />
+                  <text x={pos.x + 8} y={pos.y + BOX_H + 24} fontSize="9.5" fill="#a3e635" fontWeight="700"
+                    fontFamily="'Space Grotesk', sans-serif">
+                    {`Module ${i + 1} of ${modules.length}`}
+                  </text>
+                  <text x={pos.x + 8} y={pos.y + BOX_H + 38} fontSize="9" fill="#ffffff" fontWeight="600"
+                    fontFamily="'Plus Jakarta Sans', sans-serif">
+                    {mod.length > 32 ? mod.substring(0, 30) + '…' : mod}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export default function Home() {
   const [concept, setConcept] = useState('B2B SaaS subscription simulator and cash flow forecasting toolkit');
   const [loading, setLoading] = useState(false);
@@ -588,15 +729,9 @@ export default function Home() {
                       </ul>
                     </div>
 
-                    <div className="neo-card" style={{ ...styles.gridCard, background: '#ccfbf1' }}>
+                    <div className="neo-card" style={{ ...styles.gridCard, background: '#ccfbf1', gridColumn: '1 / -1' }}>
                       <h3 style={styles.sectionHeading}>System Architecture</h3>
-                      <div style={styles.modulesGrid}>
-                        {parsedData.architectureModules.map((m, i) => (
-                          <div key={i} className="neo-card" style={styles.moduleCard}>
-                            {m}
-                          </div>
-                        ))}
-                      </div>
+                      <ArchitectureFlowchart modules={parsedData.architectureModules} />
                     </div>
                   </>
                 )}

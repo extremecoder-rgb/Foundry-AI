@@ -25,10 +25,10 @@ export class GeminiProvider {
   private model: string;
 
   constructor(config: { apiKey?: string; apiKeys?: string[]; model?: string } = {}) {
-    const singleKey = config.apiKey || process.env.GEMINI_API_KEY;
-    const multiKeys = process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(k => k) : [];
+    const rawKeysString = config.apiKey || process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+    const extractedKeys = rawKeysString.split(',').map(k => k.trim()).filter(k => k);
     
-    this.apiKeys = config.apiKeys || (multiKeys.length > 0 ? multiKeys : (singleKey ? [singleKey] : []));
+    this.apiKeys = config.apiKeys && config.apiKeys.length > 0 ? config.apiKeys : extractedKeys;
     
     if (this.apiKeys.length === 0) {
       throw new Error('No API keys provided. Please set GEMINI_API_KEY or GEMINI_API_KEYS.');

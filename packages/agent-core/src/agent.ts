@@ -45,12 +45,18 @@ export class Agent {
           messages = await this.summarizeHistory(messages);
         }
 
-        // 2. Call Gemini model
-        const response = await this.llmProvider.generate(
-          messages,
-          this.systemPrompt,
-          this.toolRegistry.getAllTools()
-        );
+        // 2. Call Gemini model with retry logic for robustness (e.g. against 429 quota limits)
+        const response = await withRetry(async () => {
+          return await this.llmProvider.generate(
+            messages,
+            this.systemPrompt,
+            this.toolRegistry.getAllTools()
+          );
+        }, {
+          retries: 5,
+          minTimeoutMs: 1500,
+          factor: 2
+        });
 
         if (response.toolCalls && response.toolCalls.length > 0) {
           // Model decided to call tools
@@ -175,14 +181,20 @@ Keep it concise but detailed enough to maintain full context.
 `;
 
     try {
-      const summaryResult = await this.llmProvider.generate(
-        [
-          ...toSummarize,
-          { role: 'user', parts: [{ text: summaryPrompt }] }
-        ],
-        'You are a precise summarization assistant.',
-        []
-      );
+      const summaryResult = await withRetry(async () => {
+        return await this.llmProvider.generate(
+          [
+            ...toSummarize,
+            { role: 'user', parts: [{ text: summaryPrompt }] }
+          ],
+          'You are a precise summarization assistant.',
+          []
+        );
+      }, {
+        retries: 3,
+        minTimeoutMs: 1500,
+        factor: 2
+      });
 
       const summaryText = summaryResult.content || 'Summary of previous steps completed.';
       console.log(`[Agent ${this.name}] Successfully condensed history. Summary: "${summaryText.substring(0, 100)}..."`);

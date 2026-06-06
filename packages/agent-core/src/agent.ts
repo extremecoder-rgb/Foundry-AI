@@ -1,5 +1,5 @@
 import { ToolRegistry, AgentContext } from './types';
-import { GeminiProvider, ChatMessage, ChatPart } from './llm';
+import { GroqProvider, ChatMessage, ChatPart } from './llm';
 import { withRetry, getRateLimiterForNamespace } from './resilience';
 import { AgentTracer } from './tracing';
 
@@ -7,14 +7,14 @@ export interface AgentConfig {
   name: string;
   systemPrompt: string;
   toolRegistry: ToolRegistry;
-  llmProvider: GeminiProvider;
+  llmProvider: GroqProvider;
 }
 
 export class Agent {
   public name: string;
   private systemPrompt: string;
   private toolRegistry: ToolRegistry;
-  private llmProvider: GeminiProvider;
+  private llmProvider: GroqProvider;
 
   constructor(config: AgentConfig) {
     this.name = config.name;

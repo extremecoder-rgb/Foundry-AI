@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AppService } from './app.service';
-import { Agent, AgentContext, GeminiProvider, ToolRegistry, EvaluationHarness } from '@foundry/agent-core';
+import { Agent, AgentContext, GroqProvider, ToolRegistry, EvaluationHarness } from '@foundry/agent-core';
 import { ReadFileTool, WriteFileTool, ListDirTool, SearchDirTool, FileMetadataTool, MakeDirTool, DeleteFileTool, CheckDiskSpaceTool, GetEnvTool, RenameFileTool, ZipFolderTool, UnzipFolderTool } from '@foundry/tools-system';
 import { WebSearchTool, ScrapeUrlTool, AnalyzeTrendsTool, CompetitorAnalysisTool, SearchTrendsTool, GetNewsTool, FindProductHuntTool, CrawlSiteTool, ExtractEmailTool, CheckDomainNameTool, AnalyzeSentimentTool, SummarizeArticleTool } from '@foundry/tools-research';
 import { DefineRequirementsTool, WriteUserStoriesTool, DesignWireframeSpecTool, MapUserJourneyTool, PrioritizeBacklogTool, DefinePersonaTool, DrawFlowchartTool, CompareFeaturesTool, EstimateVelocityTool, WriteReleaseNotesTool, CalculateNpsTool, MapCustomerJourneyTool } from '@foundry/tools-product';
@@ -114,7 +114,7 @@ export class AppController {
       }
     }
 
-    const llmProvider = new GeminiProvider();
+    const llmProvider = new GroqProvider();
     const ceoAgent = new Agent({
       name: 'CEO-Parent',
       systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document.
@@ -272,3 +272,4 @@ export class AppController {
     }
   }
 }
+

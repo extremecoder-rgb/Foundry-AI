@@ -1,6 +1,6 @@
-import { Agent, ToolRegistry, SubagentTool, GeminiProvider } from '@foundry/agent-core';
+import { Agent, ToolRegistry, SubagentTool, GroqProvider } from '@foundry/agent-core';
 
-class MockGeminiProvider extends GeminiProvider {
+class MockGroqProvider extends GroqProvider {
   private callCount = 0;
 
   constructor() {
@@ -39,7 +39,7 @@ class MockGeminiProvider extends GeminiProvider {
 
 describe('Subagent Orchestration & Isolation', () => {
   it('should spawn a subagent in an isolated context and return result to parent', async () => {
-    const mockProvider = new MockGeminiProvider();
+    const mockProvider = new MockGroqProvider();
     const registry = new ToolRegistry();
     
     // Register the SubagentTool to the parent
@@ -62,3 +62,4 @@ describe('Subagent Orchestration & Isolation', () => {
     expect(result.content).toContain('Mocked subagent document contents.');
   });
 });
+

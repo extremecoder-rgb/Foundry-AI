@@ -1,6 +1,6 @@
 import { BaseTool, AgentContext, ToolRegistry } from './types';
 import { Agent } from './agent';
-import { GeminiProvider } from './llm';
+import { GroqProvider } from './llm';
 import { z } from 'zod';
 
 export class SubagentTool extends BaseTool<
@@ -15,9 +15,9 @@ export class SubagentTool extends BaseTool<
     agentType: z.enum(['researcher', 'writer', 'programmer']).describe('The type of subagent to spawn.')
   });
 
-  private provider: GeminiProvider;
+  private provider: GroqProvider;
 
-  constructor(provider: GeminiProvider) {
+  constructor(provider: GroqProvider) {
     super();
     this.provider = provider;
   }

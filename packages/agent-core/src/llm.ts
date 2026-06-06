@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { BaseTool } from './types';
 
@@ -19,28 +18,18 @@ export interface ChatMessage {
   parts: ChatPart[];
 }
 
-export class GeminiProvider {
+export class GroqProvider {
   private apiKeys: string[];
   private currentKeyIndex: number = 0;
   private model: string;
-  private isGroq: boolean = false;
 
   constructor(config: { apiKey?: string; apiKeys?: string[]; model?: string } = {}) {
-    const hasGroq = !!(process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY);
-    this.isGroq = hasGroq;
-
-    if (this.isGroq) {
-      const rawKeysString = config.apiKey || process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '';
-      this.apiKeys = rawKeysString.split(',').map(k => k.trim()).filter(k => k);
-      this.model = config.model || 'llama-3.3-70b-versatile';
-    } else {
-      const rawKeysString = config.apiKey || process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
-      this.apiKeys = rawKeysString.split(',').map(k => k.trim()).filter(k => k);
-      this.model = config.model || 'gemini-2.5-flash';
-    }
+    const rawKeysString = config.apiKey || process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '';
+    this.apiKeys = rawKeysString.split(',').map(k => k.trim()).filter(k => k);
+    this.model = config.model || 'llama-3.3-70b-versatile';
     
     if (this.apiKeys.length === 0) {
-      throw new Error(this.isGroq ? 'No Groq API keys provided. Please set GROQ_API_KEY or GROQ_API_KEYS.' : 'No Gemini API keys provided. Please set GEMINI_API_KEY or GEMINI_API_KEYS.');
+      throw new Error('No Groq API keys provided. Please set GROQ_API_KEY or GROQ_API_KEYS.');
     }
   }
 
@@ -51,80 +40,7 @@ export class GeminiProvider {
     return key;
   }
 
-  private getClient(): GoogleGenAI {
-    const key = this.getClientKey();
-    return new GoogleGenAI({ apiKey: key });
-  }
-
   async generate(
-    messages: ChatMessage[],
-    systemInstruction?: string,
-    tools?: BaseTool[]
-  ): Promise<{
-    content: string | null;
-    toolCalls?: Array<{
-      name: string;
-      args: any;
-    }>;
-  }> {
-    if (this.isGroq) {
-      return this.generateGroq(messages, systemInstruction, tools);
-    }
-
-    const config: any = {};
-    if (systemInstruction) {
-      config.systemInstruction = systemInstruction;
-    }
-
-    if (tools && tools.length > 0) {
-      const functionDeclarations = tools.map(tool => {
-        const schema = zodToJsonSchema(tool.schema as any);
-        const cleanedSchema = {
-          type: 'OBJECT',
-          properties: (schema as any).properties || {},
-          required: (schema as any).required || [],
-        };
-        return {
-          name: tool.name,
-          description: tool.description,
-          parameters: cleanedSchema,
-        };
-      });
-
-      config.tools = [{ functionDeclarations }];
-    }
-
-    try {
-      const ai = this.getClient();
-      const response = await ai.models.generateContent({
-        model: this.model,
-        contents: messages,
-        config
-      });
-
-      const candidate = response.candidates?.[0];
-      const part = candidate?.content?.parts?.[0];
-
-      if (part?.functionCall) {
-        return {
-          content: null,
-          toolCalls: [{
-            name: part.functionCall.name || '',
-            args: part.functionCall.args,
-          }]
-        };
-      }
-
-      return {
-        content: part?.text || '',
-      };
-    } catch (error: any) {
-      console.error('Gemini API Error:', error);
-      throw error;
-    }
-  }
-
-  private async generateGroq(
     messages: ChatMessage[],
     systemInstruction?: string,
     tools?: BaseTool[]

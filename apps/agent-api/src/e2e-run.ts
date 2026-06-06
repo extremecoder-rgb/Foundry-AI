@@ -1,4 +1,4 @@
-import { Agent, AgentContext, GeminiProvider, ToolRegistry, EvaluationHarness } from '@foundry/agent-core';
+import { Agent, AgentContext, GroqProvider, ToolRegistry, EvaluationHarness } from '@foundry/agent-core';
 import { ReadFileTool, WriteFileTool } from '@foundry/tools-system';
 import { WebSearchTool } from '@foundry/tools-research';
 import { DefineRequirementsTool, WriteUserStoriesTool } from '@foundry/tools-product';
@@ -22,7 +22,7 @@ async function bootstrap() {
   registry.registerTool(new PriceStrategyTool());
 
   // 2. Initialize LLM Provider (Using mock/test setup or standard env API Key)
-  const llmProvider = new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY || 'mock-key' });
+  const llmProvider = new GroqProvider();
 
   // 3. Initialize CEO Agent
   const ceoAgent = new Agent({
@@ -81,3 +81,4 @@ Orchestrate a blueprint for the following venture idea and output a structured J
 }
 
 bootstrap();
+

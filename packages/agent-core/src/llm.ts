@@ -20,16 +20,29 @@ export interface ChatMessage {
 }
 
 export class GeminiProvider {
-  private ai: GoogleGenAI;
+  private apiKeys: string[];
+  private currentKeyIndex: number = 0;
   private model: string;
 
-  constructor(config: { apiKey?: string; model?: string } = {}) {
-    const apiKey = config.apiKey || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not defined. Please set the environment variable or pass it to GeminiProvider.');
+  constructor(config: { apiKey?: string; apiKeys?: string[]; model?: string } = {}) {
+    const singleKey = config.apiKey || process.env.GEMINI_API_KEY;
+    const multiKeys = process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(k => k) : [];
+    
+    this.apiKeys = config.apiKeys || (multiKeys.length > 0 ? multiKeys : (singleKey ? [singleKey] : []));
+    
+    if (this.apiKeys.length === 0) {
+      throw new Error('No API keys provided. Please set GEMINI_API_KEY or GEMINI_API_KEYS.');
     }
-    this.ai = new GoogleGenAI({ apiKey });
+    
+    // Defaulting back to flash, since rotation solves the limit
     this.model = config.model || 'gemini-2.5-flash';
+  }
+
+  private getClient(): GoogleGenAI {
+    const key = this.apiKeys[this.currentKeyIndex];
+    // Round-robin rotation for the next call
+    this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
+    return new GoogleGenAI({ apiKey: key });
   }
 
   async generate(
@@ -68,7 +81,8 @@ export class GeminiProvider {
     }
 
     try {
-      const response = await this.ai.models.generateContent({
+      const ai = this.getClient();
+      const response = await ai.models.generateContent({
         model: this.model,
         contents: messages,
         config

@@ -22,6 +22,11 @@ export async function withRetry<T>(
       
       let waitTime = delay;
       const errorMessage = error.message || '';
+
+      if (errorMessage.includes('GenerateRequestsPerDay')) {
+        console.warn(`[Resilience] Daily API quota exhausted! Aborting retries immediately to trigger fallback.`);
+        throw error;
+      }
       const isRateLimit = error.status === 429 || 
                           errorMessage.includes('429') ||
                           errorMessage.toLowerCase().includes('quota exceeded') ||

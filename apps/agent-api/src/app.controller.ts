@@ -119,7 +119,7 @@ export class AppController {
       name: 'CEO-Parent',
       systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document.
       You must coordinate and delegate research, product, engineering, and finance tasks. Use your registered tools.
-      You MUST end your output with a valid JSON block enclosed in \`\`\`json and \`\`\` containing the parsed blueprint fields so the evaluation harness can read it.
+      CRITICAL INSTRUCTION: You MUST output ONLY a valid JSON block enclosed in \`\`\`json and \`\`\`. Do NOT include any conversational filler, introductory text, markdown headings, or explanations before or after the JSON block.
       JSON Schema format:
       {
         "concept": "venture name",
@@ -158,14 +158,21 @@ export class AppController {
       };
 
       try {
-        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || responseContent.match(/{[\s\S]*}/);
-        if (jsonMatch) {
-          const jsonText = jsonMatch[1] || jsonMatch[0];
-          parsedBlueprint = JSON.parse(jsonText.trim());
-          await logCallback('info', `Successfully parsed dynamic JSON blueprint for evaluation.`);
+        const markdownMatch = responseContent.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
+        let jsonText = '';
+        if (markdownMatch) {
+          jsonText = markdownMatch[1];
         } else {
-          await logCallback('warn', `Could not find JSON block in agent response. Falling back to default structural grading.`);
+          const firstBrace = responseContent.indexOf('{');
+          const lastBrace = responseContent.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+             jsonText = responseContent.substring(firstBrace, lastBrace + 1);
+          } else {
+             jsonText = responseContent;
+          }
         }
+        parsedBlueprint = JSON.parse(jsonText.trim());
+        await logCallback('info', `Successfully parsed dynamic JSON blueprint for evaluation.`);
       } catch (parseError: any) {
         await logCallback('warn', `Failed to parse agent JSON block: ${parseError.message}. Using default structural grading.`);
       }

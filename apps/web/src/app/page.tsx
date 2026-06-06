@@ -92,9 +92,17 @@ export default function Home() {
   const parseBlueprint = (text?: string): BlueprintData | null => {
     if (!text) return null;
     try {
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/{[\s\S]*}/);
-      if (!jsonMatch) return null;
-      const rawJson = jsonMatch[1] || jsonMatch[0];
+      let rawJson = text;
+      const markdownMatch = text.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
+      if (markdownMatch) {
+        rawJson = markdownMatch[1];
+      } else {
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          rawJson = text.substring(firstBrace, lastBrace + 1);
+        }
+      }
       return JSON.parse(rawJson.trim());
     } catch (e) {
       console.error('Failed to parse blueprint JSON:', e);

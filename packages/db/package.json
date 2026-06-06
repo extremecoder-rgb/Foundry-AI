@@ -1,0 +1,15 @@
+{
+  "name": "@foundry/db",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.10.0"
+  }
+}

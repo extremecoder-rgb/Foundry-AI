@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AgentRun {
+  id          String   @id @default(uuid())
+  agentType   String
+  status      String
+  input       Json
+  result      Json?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  logs        AgentLog[]
+}
+
+model AgentLog {
+  id          String   @id @default(uuid())
+  runId       String
+  run         AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  timestamp   DateTime @default(now())
+  level       String
+  message     String
+  toolName    String?
+  toolInput   Json?
+  toolOutput  Json?
+  error       String?
+}

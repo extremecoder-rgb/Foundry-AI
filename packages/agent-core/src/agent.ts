@@ -54,7 +54,7 @@ export class Agent {
           );
         }, {
           retries: 5,
-          minTimeoutMs: 1500,
+          minTimeoutMs: 3000,
           factor: 2
         });
 

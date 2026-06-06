@@ -29,7 +29,7 @@ export class GeminiProvider {
       throw new Error('GEMINI_API_KEY is not defined. Please set the environment variable or pass it to GeminiProvider.');
     }
     this.ai = new GoogleGenAI({ apiKey });
-    this.model = config.model || 'gemini-1.5-flash';
+    this.model = config.model || 'gemini-2.5-flash';
   }
 
   async generate(

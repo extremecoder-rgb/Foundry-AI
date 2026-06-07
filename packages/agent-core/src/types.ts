@@ -1,12 +1,14 @@
 import { z } from 'zod';
+import type { GroqProvider } from './llm';
 
 export interface AgentContext {
   runId: string;
   metadata?: Record<string, any>;
+  llmProvider?: GroqProvider;
   log?: (
     level: 'info' | 'warn' | 'error',
     message: string,
-    detail?: { toolName?: string; toolInput?: any; toolOutput?: any; error?: string }
+    detail?: { toolName?: string; toolInput?: any; toolOutput?: any; error?: string; agent?: string; iteration?: number; iterations?: number; runId?: string; subrunId?: string }
   ) => Promise<void>;
 }
 
@@ -15,6 +17,16 @@ export abstract class BaseTool<TInput = any, TOutput = any> {
   abstract description: string;
   abstract namespace: string;
   abstract schema: z.ZodType<TInput>;
+
+  protected llmProvider?: GroqProvider;
+
+  setLLMProvider(provider: GroqProvider | undefined) {
+    this.llmProvider = provider;
+  }
+
+  protected resolveLLM(context?: AgentContext): GroqProvider | undefined {
+    return context?.llmProvider || this.llmProvider;
+  }
 
   abstract execute(input: TInput, context: AgentContext): Promise<TOutput>;
 }

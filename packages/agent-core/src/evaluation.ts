@@ -42,14 +42,42 @@ export class EvaluationHarness {
       feedback.push('All 5 domain namespaces successfully represented in blueprint.');
     }
 
-    // 2. Product & Competitors Check (20 pts)
-    const hasCompetitors = blueprint.competitors && blueprint.competitors.length > 0;
-    const hasModules = blueprint.architectureModules && blueprint.architectureModules.length > 0;
-    if (hasCompetitors) score += 10;
-    else feedback.push('No competitors listed in research findings.');
+    const PLACEHOLDER_PATTERNS = [
+      /^competitor\s*[a-z0-9]+$/i,
+      /^incumbent\s*corp/i,
+      /fastscale/i,
+      /nichetech/i,
+      /^company\s*[a-z0-9]+$/i,
+      /^unknown/i,
+      /^n\/?a$/i,
+      /^tbd$/i,
+      /placeholder/i,
+      /example\s*(inc|corp|ltd|llc)/i
+    ];
 
-    if (hasModules) score += 10;
-    else feedback.push('No technical architectural modules specified.');
+    const isPlaceholder = (s: string) => PLACEHOLDER_PATTERNS.some(rx => rx.test(s.trim()));
+
+    const competitors = blueprint.competitors || [];
+    const realCompetitors = competitors.filter(c => c && c.trim().length >= 2 && !isPlaceholder(c));
+    const hasCompetitors = realCompetitors.length > 0;
+    const hasModules = blueprint.architectureModules && blueprint.architectureModules.length > 0;
+
+    if (realCompetitors.length > 0) {
+      score += 10;
+      if (realCompetitors.length < competitors.length) {
+        feedback.push(`${competitors.length - realCompetitors.length} of ${competitors.length} competitor names look like placeholders or fabrications.`);
+      }
+    } else if (competitors.length > 0) {
+      feedback.push(`All ${competitors.length} competitor entries look like placeholders. Run the research subagent's web_search again.`);
+    } else {
+      feedback.push('No competitors listed in research findings.');
+    }
+
+    if (hasModules) {
+      score += 10;
+    } else {
+      feedback.push('No technical architectural modules specified.');
+    }
 
     // 3. Financial Model Check (40 pts)
     const hasPricing = blueprint.financialModel?.pricingStrategy && blueprint.financialModel.pricingStrategy.length > 0;

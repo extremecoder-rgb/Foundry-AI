@@ -27,7 +27,7 @@ export class GroqProvider {
     const rawKeysString = config.apiKey || process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '';
     this.apiKeys = rawKeysString.split(',').map(k => k.trim()).filter(k => k);
     this.model = config.model || 'llama-3.3-70b-versatile';
-    
+
     if (this.apiKeys.length === 0) {
       throw new Error('No Groq API keys provided. Please set GROQ_API_KEY or GROQ_API_KEYS.');
     }

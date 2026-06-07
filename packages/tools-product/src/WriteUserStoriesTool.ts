@@ -4,57 +4,50 @@ import { Requirement } from './DefineRequirementsTool';
 
 export interface UserStory {
   id: string;
-  story: string; // "As a... I want to... So that..."
+  story: string;
   acceptanceCriteria: string[];
 }
 
 export class WriteUserStoriesTool extends BaseTool<
-  { requirements: Requirement[] },
+  { requirements: Requirement[]; productContext?: string },
   { userStories: UserStory[] }
 > {
   name = 'product_write_user_stories';
-  description = 'Convert a list of functional and non-functional requirements into Agile User Stories with acceptance criteria.';
+  description = 'Convert a list of functional and non-functional requirements into Agile User Stories with acceptance criteria. Pure composition — no LLM call needed.';
   namespace = 'product';
-  // Composable schema: consumes Requirement objects
   schema = z.object({
-    requirements: z.array(
-      z.object({
-        id: z.string(),
-        type: z.enum(['functional', 'non-functional']),
-        description: z.string(),
-        priority: z.enum(['high', 'medium', 'low'])
-      })
-    ).describe('A list of structured requirements to convert into user stories.')
+    requirements: z.array(z.object({
+      id: z.string(),
+      type: z.enum(['functional', 'non-functional']),
+      description: z.string(),
+      priority: z.enum(['high', 'medium', 'low'])
+    })),
+    productContext: z.string().optional()
   });
 
   async execute(
-    input: { requirements: Requirement[] },
+    input: { requirements: Requirement[]; productContext?: string },
     context: AgentContext
   ): Promise<{ userStories: UserStory[] }> {
-    console.log(`[WriteUserStoriesTool] Writing user stories for ${input.requirements.length} requirements`);
-
+    const contextSnippet = input.productContext ? `, in the context of ${input.productContext}` : '';
     const userStories: UserStory[] = input.requirements.map((req, index) => {
-      const id = `US-00${index + 1}`;
-      let story = '';
-      let acceptanceCriteria: string[] = [];
-
-      if (req.type === 'functional') {
-        story = `As an active user, I want to execute the following capability: "${req.description}", so that I can accomplish my product workflow goals.`;
-        acceptanceCriteria = [
-          'The capability executes successfully without errors.',
-          'UI feedback is provided immediately to the user.'
-        ];
-      } else {
-        story = `As a system administrator, I want the system to satisfy: "${req.description}", so that the platform remains stable and responsive.`;
-        acceptanceCriteria = [
-          'Performance metrics are monitored and recorded.',
-          'Alerts are triggered if criteria are violated.'
-        ];
-      }
-
+      const id = `US-${String(index + 1).padStart(3, '0')}`;
+      const persona = req.type === 'functional' ? 'an end user' : 'a system administrator';
+      const desire = req.type === 'functional' ? 'to accomplish the workflow' : 'to maintain reliability and performance';
+      const story = `As ${persona}${contextSnippet}, I want "${req.description}", so that I can ${desire}.`;
+      const acceptanceCriteria = req.type === 'functional'
+        ? [
+            'The capability executes end-to-end without errors for the documented input.',
+            'Validation errors return clear, actionable messages within 200ms.',
+            'The change is recorded in the activity log with the user identity.'
+          ]
+        : [
+            `Measured ${req.description.toLowerCase()} is monitored continuously.`,
+            'Alerts are triggered when the SLO is violated for more than 5 minutes.',
+            'Quarterly review confirms the requirement still aligns with user needs.'
+          ];
       return { id, story, acceptanceCriteria };
     });
-
     return { userStories };
   }
 }

@@ -21,12 +21,18 @@ interface Evaluation {
   feedback: string[];
 }
 
+interface TraceSummary {
+  ceoIterations: number;
+  subagents: Array<{ name: string; iterations: number }>;
+}
+
 interface RunResponse {
   success: boolean;
   runId: string;
   blueprint?: string;
   evaluation?: Evaluation;
   logs: LogEntry[];
+  trace?: TraceSummary;
   error?: string;
 }
 
@@ -188,7 +194,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RunResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'parsed' | 'raw'>('parsed');
+  const [activeTab, setActiveTab] = useState<'parsed' | 'raw' | 'trace'>('parsed');
 
   const presets = [
     'AI-driven code security scanner and automated vulnerability resolver',
@@ -562,7 +568,7 @@ export default function Home() {
           <div className="neo-card" style={styles.loaderContainer}>
             <div style={styles.spinner}></div>
             <h3 style={styles.loaderHeading}>Orchestrator Executing Agent Loop</h3>
-            <p style={styles.loaderText}>Spawning specialized agents (Research, Product, Engineering, Finance)... This will take 30-40 seconds.</p>
+            <p style={styles.loaderText}>CEO orchestrator delegating to 4 specialist subagents (Research, Product, Engineering, Finance), each running their own tool loops. This typically takes 10-30 seconds.</p>
           </div>
         )}
 
@@ -570,7 +576,7 @@ export default function Home() {
           <div className="neo-card" style={styles.errorCard}>
             <h3 style={styles.errorHeading}>Agent Execution Error</h3>
             <p style={{ margin: '0 0 10px 0' }}>{error}</p>
-            <p style={styles.errorSub}>Make sure your backend NestJS service is running (`npm run start:dev --workspace=agent-api`) and your `.env` contains your Gemini API Key.</p>
+            <p style={styles.errorSub}>Make sure your backend NestJS service is running (`npm run start:dev --workspace=agent-api`) and your `.env` contains your Groq API Key.</p>
           </div>
         )}
 
@@ -602,6 +608,18 @@ export default function Home() {
                 >
                   Raw Blueprint Output
                 </button>
+
+                <button
+                  className="neo-btn"
+                  onClick={() => setActiveTab('trace')}
+                  style={{
+                    ...styles.tabBtn,
+                    background: activeTab === 'trace' ? '#facc15' : '#ffffff',
+                    fontWeight: '700'
+                  }}
+                >
+                  Orchestration Trace
+                </button>
               </div>
 
               <button className="neo-btn" onClick={downloadPdf} style={styles.pdfBtn}>
@@ -613,6 +631,70 @@ export default function Home() {
               <div className="neo-card" style={styles.rawCard}>
                 <h3 style={styles.sectionHeading}>Raw Agent Blueprint</h3>
                 <pre style={styles.rawText}>{result.blueprint}</pre>
+              </div>
+            ) : activeTab === 'trace' ? (
+              <div className="neo-card" style={{ ...styles.rawCard, background: '#ffffff' }}>
+                <h3 style={styles.sectionHeading}>Multi-Agent Orchestration Trace</h3>
+                <p style={{ ...styles.cardSubText, marginBottom: '1rem' }}>
+                  Live execution graph showing the CEO orchestrator delegating to four specialist subagents,
+                  each running its own tool loop. Each event below is emitted from the backend agent runtime.
+                </p>
+
+                {result.trace && (
+                  <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                    <div className="neo-card" style={{ ...styles.statBox, background: '#fef3c7' }}>
+                      <span style={styles.statLabel}>CEO Iterations</span>
+                      <span style={styles.statValue}>{result.trace.ceoIterations}</span>
+                    </div>
+                    {result.trace.subagents.map((s, i) => (
+                      <div key={i} className="neo-card" style={{ ...styles.statBox, background: '#dbeafe' }}>
+                        <span style={styles.statLabel}>{s.name}</span>
+                        <span style={{ ...styles.statValue, fontSize: '1.2rem' }}>{s.iterations} iters</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={styles.flowGraph}>
+                  <div style={styles.flowCeo}>CEO-Parent</div>
+                  <div style={styles.flowArrows}>
+                    {['research', 'product', 'engineering', 'finance'].map((d) => (
+                      <div key={d} style={styles.flowArrow}>↓ delegate_to_{d}</div>
+                    ))}
+                  </div>
+                  <div style={styles.flowSubagents}>
+                    {['research-subagent', 'product-subagent', 'engineering-subagent', 'finance-subagent'].map((n, i) => (
+                      <div key={n} style={{ ...styles.flowSubagent, background: ['#a3e635', '#67e8f9', '#f9a8d4', '#fdba74'][i] }}>
+                        {n}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <h4 style={{ ...styles.sectionHeading, fontSize: '1.05rem', marginTop: '2rem' }}>Event Timeline</h4>
+                <div style={styles.timeline}>
+                  {result.logs.map((log, i) => (
+                    <div key={i} style={styles.timelineItem}>
+                      <div style={{
+                        ...styles.timelineDot,
+                        background: log.level === 'error' ? '#ef4444' : log.level === 'warn' ? '#fbbf24' : '#000000'
+                      }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={styles.timelineHeader}>
+                          <span style={styles.timelineAgent}>{log.meta?.agent || 'orchestrator'}</span>
+                          <span style={styles.timelineTime}>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div style={styles.timelineMessage}>{log.message}</div>
+                        {log.meta?.toolName && (
+                          <div style={styles.timelineTool}>
+                            🔧 {log.meta.toolName}
+                            {log.meta.iteration !== undefined && ` · iter ${log.meta.iteration}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div style={styles.dashboardGrid}>
@@ -1130,6 +1212,111 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: '0.8rem'
+  },
+  flowGraph: {
+    background: '#0a0a0a',
+    color: '#ffffff',
+    padding: '1.5rem',
+    border: '4px solid #000000',
+    boxShadow: '6px 6px 0px #000000',
+    fontFamily: "'Space Grotesk', sans-serif"
+  },
+  flowCeo: {
+    background: '#facc15',
+    color: '#000000',
+    padding: '0.8rem 1.2rem',
+    fontWeight: '800',
+    textAlign: 'center',
+    border: '3px solid #000000',
+    marginBottom: '0.8rem',
+    fontSize: '1rem'
+  },
+  flowArrows: {
+    display: 'flex',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    gap: '0.4rem',
+    marginBottom: '0.8rem',
+    fontSize: '0.75rem',
+    color: '#a3e635',
+    fontWeight: '700'
+  },
+  flowArrow: {
+    background: '#1f2937',
+    padding: '0.3rem 0.6rem',
+    border: '1px solid #a3e635'
+  },
+  flowSubagents: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: '0.5rem'
+  },
+  flowSubagent: {
+    padding: '0.7rem 0.4rem',
+    textAlign: 'center',
+    fontWeight: '800',
+    fontSize: '0.8rem',
+    color: '#000000',
+    border: '3px solid #000000'
+  },
+  timeline: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.6rem',
+    marginTop: '1rem',
+    maxHeight: '420px',
+    overflowY: 'auto',
+    padding: '0.5rem',
+    background: '#f9fafb',
+    border: '3px solid #000000'
+  },
+  timelineItem: {
+    display: 'flex',
+    gap: '0.8rem',
+    alignItems: 'flex-start',
+    background: '#ffffff',
+    padding: '0.6rem 0.8rem',
+    border: '2px solid #000000'
+  },
+  timelineDot: {
+    width: '12px',
+    height: '12px',
+    minWidth: '12px',
+    marginTop: '4px',
+    border: '2px solid #000000'
+  },
+  timelineHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2px'
+  },
+  timelineAgent: {
+    fontSize: '0.7rem',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    background: '#000000',
+    color: '#ffffff',
+    padding: '2px 6px',
+    letterSpacing: '0.5px'
+  },
+  timelineTime: {
+    fontSize: '0.7rem',
+    color: '#6b7280',
+    fontWeight: '600',
+    fontFamily: 'monospace'
+  },
+  timelineMessage: {
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    color: '#000000'
+  },
+  timelineTool: {
+    fontSize: '0.75rem',
+    color: '#4b5563',
+    fontWeight: '600',
+    marginTop: '4px',
+    fontFamily: 'monospace'
   },
   moduleCard: {
     background: '#ffffff',

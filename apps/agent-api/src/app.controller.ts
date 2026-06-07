@@ -1,12 +1,120 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AppService } from './app.service';
-import { Agent, AgentContext, GroqProvider, ToolRegistry, EvaluationHarness } from '@foundry/agent-core';
-import { ReadFileTool, WriteFileTool, ListDirTool, SearchDirTool, FileMetadataTool, MakeDirTool, DeleteFileTool, CheckDiskSpaceTool, GetEnvTool, RenameFileTool, ZipFolderTool, UnzipFolderTool } from '@foundry/tools-system';
-import { WebSearchTool, ScrapeUrlTool, AnalyzeTrendsTool, CompetitorAnalysisTool, SearchTrendsTool, GetNewsTool, FindProductHuntTool, CrawlSiteTool, ExtractEmailTool, CheckDomainNameTool, AnalyzeSentimentTool, SummarizeArticleTool } from '@foundry/tools-research';
-import { DefineRequirementsTool, WriteUserStoriesTool, DesignWireframeSpecTool, MapUserJourneyTool, PrioritizeBacklogTool, DefinePersonaTool, DrawFlowchartTool, CompareFeaturesTool, EstimateVelocityTool, WriteReleaseNotesTool, CalculateNpsTool, MapCustomerJourneyTool } from '@foundry/tools-product';
-import { ArchitectSystemTool, SelectTechStackTool, ScaffoldRepositoryTool, GenerateSchemaTool, GenerateRoutesTool, MockDatabaseDataTool, RunLinterTool, CheckDependenciesTool, EstimateLoCTool, CodeComplexityTool, CalculateTestCoverageTool, AuditSecurityTool } from '@foundry/tools-engineering';
-import { BuildFinancialModelTool, EstimateCostsTool, PriceStrategyTool, BreakEvenAnalysisTool, ProjectRevenueTool, TaxEstimatorTool, SubscriptionCalculatorTool, CapTableSimulatorTool, LtvCacEstimatorTool, MarketingBudgetPlanTool, EstimateValuationTool, SimulateTaxScenariosTool } from '@foundry/tools-finance';
+import {
+  Agent,
+  AgentContext,
+  GroqProvider,
+  ToolRegistry,
+  BaseTool,
+  DelegateTool,
+  EvaluationHarness
+} from '@foundry/agent-core';
+import {
+  ReadFileTool,
+  WriteFileTool,
+  ListDirTool,
+  SearchDirTool,
+  FileMetadataTool,
+  MakeDirTool,
+  DeleteFileTool,
+  CheckDiskSpaceTool,
+  GetEnvTool,
+  RenameFileTool,
+  ZipFolderTool,
+  UnzipFolderTool
+} from '@foundry/tools-system';
+import {
+  WebSearchTool,
+  ScrapeUrlTool,
+  AnalyzeTrendsTool,
+  CompetitorAnalysisTool,
+  SearchTrendsTool,
+  GetNewsTool,
+  FindProductHuntTool,
+  CrawlSiteTool,
+  ExtractEmailTool,
+  CheckDomainNameTool,
+  AnalyzeSentimentTool,
+  SummarizeArticleTool
+} from '@foundry/tools-research';
+import {
+  DefineRequirementsTool,
+  WriteUserStoriesTool,
+  DesignWireframeSpecTool,
+  MapUserJourneyTool,
+  PrioritizeBacklogTool,
+  DefinePersonaTool,
+  DrawFlowchartTool,
+  CompareFeaturesTool,
+  EstimateVelocityTool,
+  WriteReleaseNotesTool,
+  CalculateNpsTool,
+  MapCustomerJourneyTool
+} from '@foundry/tools-product';
+import {
+  ArchitectSystemTool,
+  SelectTechStackTool,
+  ScaffoldRepositoryTool,
+  GenerateSchemaTool,
+  GenerateRoutesTool,
+  MockDatabaseDataTool,
+  RunLinterTool,
+  CheckDependenciesTool,
+  EstimateLoCTool,
+  CodeComplexityTool,
+  CalculateTestCoverageTool,
+  AuditSecurityTool
+} from '@foundry/tools-engineering';
+import {
+  BuildFinancialModelTool,
+  EstimateCostsTool,
+  PriceStrategyTool,
+  BreakEvenAnalysisTool,
+  ProjectRevenueTool,
+  TaxEstimatorTool,
+  SubscriptionCalculatorTool,
+  CapTableSimulatorTool,
+  LtvCacEstimatorTool,
+  MarketingBudgetPlanTool,
+  EstimateValuationTool,
+  SimulateTaxScenariosTool
+} from '@foundry/tools-finance';
 import { randomUUID } from 'crypto';
+
+interface TraceEvent {
+  timestamp: string;
+  level: string;
+  message: string;
+  meta?: any;
+}
+
+interface OrchestratorResult {
+  success: boolean;
+  runId: string;
+  blueprint: string;
+  evaluation?: any;
+  logs: TraceEvent[];
+  trace: {
+    ceoIterations: number;
+    subagents: Array<{ name: string; iterations: number }>;
+  };
+  error?: string;
+}
+
+function loadEnv() {
+  const envPaths = [
+    require('path').resolve(__dirname, '../../../.env'),
+    require('path').resolve(__dirname, '../../../../.env'),
+    require('path').resolve(process.cwd(), '../../.env'),
+    require('path').resolve(process.cwd(), '.env')
+  ];
+  for (const p of envPaths) {
+    if (require('fs').existsSync(p)) {
+      require('dotenv').config({ path: p });
+      return;
+    }
+  }
+}
 
 @Controller()
 export class AppController {
@@ -17,300 +125,388 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  private buildToolRegistry(): ToolRegistry {
+  private buildCatalogRegistry(): ToolRegistry {
     const registry = new ToolRegistry();
-    // System
-    registry.registerTool(new ReadFileTool());
-    registry.registerTool(new WriteFileTool());
-    registry.registerTool(new ListDirTool());
-    registry.registerTool(new SearchDirTool());
-    registry.registerTool(new FileMetadataTool());
-    registry.registerTool(new MakeDirTool());
-    registry.registerTool(new DeleteFileTool());
-    registry.registerTool(new CheckDiskSpaceTool());
-    registry.registerTool(new GetEnvTool());
-    registry.registerTool(new RenameFileTool());
-    registry.registerTool(new ZipFolderTool());
-    registry.registerTool(new UnzipFolderTool());
-
-    // Research
-    registry.registerTool(new WebSearchTool());
-    registry.registerTool(new ScrapeUrlTool());
-    registry.registerTool(new AnalyzeTrendsTool());
-    registry.registerTool(new CompetitorAnalysisTool());
-    registry.registerTool(new SearchTrendsTool());
-    registry.registerTool(new GetNewsTool());
-    registry.registerTool(new FindProductHuntTool());
-    registry.registerTool(new CrawlSiteTool());
-    registry.registerTool(new ExtractEmailTool());
-    registry.registerTool(new CheckDomainNameTool());
-    registry.registerTool(new AnalyzeSentimentTool());
-    registry.registerTool(new SummarizeArticleTool());
-
-    // Product
-    registry.registerTool(new DefineRequirementsTool());
-    registry.registerTool(new WriteUserStoriesTool());
-    registry.registerTool(new DesignWireframeSpecTool());
-    registry.registerTool(new MapUserJourneyTool());
-    registry.registerTool(new PrioritizeBacklogTool());
-    registry.registerTool(new DefinePersonaTool());
-    registry.registerTool(new DrawFlowchartTool());
-    registry.registerTool(new CompareFeaturesTool());
-    registry.registerTool(new EstimateVelocityTool());
-    registry.registerTool(new WriteReleaseNotesTool());
-    registry.registerTool(new CalculateNpsTool());
-    registry.registerTool(new MapCustomerJourneyTool());
-
-    // Engineering
-    registry.registerTool(new ArchitectSystemTool());
-    registry.registerTool(new SelectTechStackTool());
-    registry.registerTool(new ScaffoldRepositoryTool());
-    registry.registerTool(new GenerateSchemaTool());
-    registry.registerTool(new GenerateRoutesTool());
-    registry.registerTool(new MockDatabaseDataTool());
-    registry.registerTool(new RunLinterTool());
-    registry.registerTool(new CheckDependenciesTool());
-    registry.registerTool(new EstimateLoCTool());
-    registry.registerTool(new CodeComplexityTool());
-    registry.registerTool(new CalculateTestCoverageTool());
-    registry.registerTool(new AuditSecurityTool());
-
-    // Finance
-    registry.registerTool(new BuildFinancialModelTool());
-    registry.registerTool(new EstimateCostsTool());
-    registry.registerTool(new PriceStrategyTool());
-    registry.registerTool(new BreakEvenAnalysisTool());
-    registry.registerTool(new ProjectRevenueTool());
-    registry.registerTool(new TaxEstimatorTool());
-    registry.registerTool(new SubscriptionCalculatorTool());
-    registry.registerTool(new CapTableSimulatorTool());
-    registry.registerTool(new LtvCacEstimatorTool());
-    registry.registerTool(new MarketingBudgetPlanTool());
-    registry.registerTool(new EstimateValuationTool());
-    registry.registerTool(new SimulateTaxScenariosTool());
-    
+    [
+      new ReadFileTool(), new WriteFileTool(), new ListDirTool(), new SearchDirTool(),
+      new FileMetadataTool(), new MakeDirTool(), new DeleteFileTool(), new CheckDiskSpaceTool(),
+      new GetEnvTool(), new RenameFileTool(), new ZipFolderTool(), new UnzipFolderTool()
+    ].forEach(t => registry.registerTool(t));
+    [
+      new WebSearchTool(), new ScrapeUrlTool(), new AnalyzeTrendsTool(), new CompetitorAnalysisTool(),
+      new SearchTrendsTool(), new GetNewsTool(), new FindProductHuntTool(), new CrawlSiteTool(),
+      new ExtractEmailTool(), new CheckDomainNameTool(), new AnalyzeSentimentTool(), new SummarizeArticleTool()
+    ].forEach(t => registry.registerTool(t));
+    [
+      new DefineRequirementsTool(), new WriteUserStoriesTool(), new DesignWireframeSpecTool(),
+      new MapUserJourneyTool(), new PrioritizeBacklogTool(), new DefinePersonaTool(),
+      new DrawFlowchartTool(), new CompareFeaturesTool(), new EstimateVelocityTool(),
+      new WriteReleaseNotesTool(), new CalculateNpsTool(), new MapCustomerJourneyTool()
+    ].forEach(t => registry.registerTool(t));
+    [
+      new ArchitectSystemTool(), new SelectTechStackTool(), new ScaffoldRepositoryTool(),
+      new GenerateSchemaTool(), new GenerateRoutesTool(), new MockDatabaseDataTool(),
+      new RunLinterTool(), new CheckDependenciesTool(), new EstimateLoCTool(),
+      new CodeComplexityTool(), new CalculateTestCoverageTool(), new AuditSecurityTool()
+    ].forEach(t => registry.registerTool(t));
+    [
+      new BuildFinancialModelTool(), new EstimateCostsTool(), new PriceStrategyTool(),
+      new BreakEvenAnalysisTool(), new ProjectRevenueTool(), new TaxEstimatorTool(),
+      new SubscriptionCalculatorTool(), new CapTableSimulatorTool(), new LtvCacEstimatorTool(),
+      new MarketingBudgetPlanTool(), new EstimateValuationTool(), new SimulateTaxScenariosTool()
+    ].forEach(t => registry.registerTool(t));
     return registry;
+  }
+
+  private buildResearchSubagent(llmProvider: GroqProvider, contextLLM: GroqProvider): DelegateTool {
+    const tools: BaseTool[] = [
+      new WebSearchTool(),
+      new ScrapeUrlTool(),
+      new AnalyzeTrendsTool(),
+      new CompetitorAnalysisTool(),
+      new SearchTrendsTool(),
+      new GetNewsTool(),
+      new AnalyzeSentimentTool()
+    ];
+    for (const t of tools) t.setLLMProvider(contextLLM);
+    return new DelegateTool({
+      domain: 'research',
+      llmProvider,
+      tools,
+      systemPrompt: `You are the research subagent for Foundry AI. Your output is fed directly to the CEO orchestrator.
+
+Your job is to call research_web_search once with a focused query, read the actual title fields of the returned search results, and return the real company or product names that appear in those titles.
+
+Workflow:
+1. Call research_web_search exactly once with a query like "<concept> top companies" or "<concept> competitors". Do not call it multiple times — one call is enough.
+2. Read the title and snippet fields of every result returned by the tool.
+3. Extract the real company or product names from those titles.
+4. If the tool returns searchUnavailable: true, or returns zero results, or every title is generic, you MUST return an empty competitors array. Do NOT invent names.
+5. Optionally call research_analyze_trends with the concept to capture market signals.
+
+Hard rules:
+- Every entry in "competitors" must be a real company or product name that literally appears in a title field of a research_web_search result.
+- If you cannot find any real company names in the search results, return "competitors": [].
+- Never output generic words as company names: not "Competitor", "Competitor A", "Insights", "Market leaders", "IncumbentCorp", "FastScale", "NicheTech", "Industry leaders", "Top players", or anything similar.
+- Never copy example strings from this prompt.
+
+Return a single JSON block (enclosed in \`\`\`json and \`\`\`) with this exact shape:
+{
+  "competitors": ["Real Company Name 1", "Real Company Name 2", "Real Company Name 3"],
+  "marketSignals": ["Short signal grounded in a tool output"],
+  "sources": ["https://url-from-search-result-1.com"]
+}`
+    });
+  }
+
+  private buildProductSubagent(llmProvider: GroqProvider, contextLLM: GroqProvider): DelegateTool {
+    const tools: BaseTool[] = [
+      new DefineRequirementsTool(),
+      new WriteUserStoriesTool(),
+      new DefinePersonaTool(),
+      new PrioritizeBacklogTool(),
+      new MapUserJourneyTool(),
+      new CompareFeaturesTool()
+    ];
+    for (const t of tools) t.setLLMProvider(contextLLM);
+    return new DelegateTool({
+      domain: 'product',
+      llmProvider,
+      tools,
+      systemPrompt: `You are the product subagent for Foundry AI.
+
+You MUST call product_define_requirements with the venture concept on your first turn. Then call product_define_persona with the same concept. Call each tool exactly once — do not duplicate.
+
+The product_define_requirements tool returns concept-specific requirements when an LLM is available, or a generic template as fallback. You MUST ensure every requirement is specific to the venture concept.
+
+The five requirement strings you return must each describe a real capability that the venture must have. The same goes for the personas: they must be specific to the target segment.
+
+Return a single JSON block (enclosed in \`\`\`json and \`\`\`) with this exact shape:
+{
+  "productRequirements": [
+    "Functional requirement 1 specific to the concept",
+    "Functional requirement 2 specific to the concept",
+    "Non-functional requirement 1 specific to the concept",
+    "Non-functional requirement 2 specific to the concept",
+    "Non-functional requirement 3 specific to the concept"
+  ],
+  "personas": ["Specific persona 1", "Specific persona 2"]
+}
+
+Do not return any requirement that could apply to any SaaS product. Do not copy any phrase from this prompt.`
+    });
+  }
+
+  private buildEngineeringSubagent(llmProvider: GroqProvider, contextLLM: GroqProvider): DelegateTool {
+    const tools: BaseTool[] = [
+      new ArchitectSystemTool(),
+      new SelectTechStackTool(),
+      new GenerateSchemaTool(),
+      new GenerateRoutesTool(),
+      new EstimateLoCTool(),
+      new AuditSecurityTool()
+    ];
+    for (const t of tools) t.setLLMProvider(contextLLM);
+    return new DelegateTool({
+      domain: 'engineering',
+      llmProvider,
+      tools,
+      systemPrompt: `You are the engineering subagent for Foundry AI.
+
+You MUST call engineering_architect_system with the venture concept on your first turn. Then call engineering_select_tech_stack with the concept. Call each tool exactly once — do not duplicate.
+
+The engineering_architect_system tool returns concept-specific module names when an LLM is available. You MUST ensure every module name is specific to the venture concept. Zero generic module names.
+
+Return a single JSON block (enclosed in \`\`\`json and \`\`\`) with this exact shape:
+{
+  "architectureModules": [
+    "Module 1 named for the concept",
+    "Module 2 named for the concept",
+    "Module 3 named for the concept",
+    "Specific database or cache chosen for the concept",
+    "Specific third-party integration or gateway"
+  ],
+  "techStack": {
+    "languages": ["Lang 1", "Lang 2"],
+    "framework": "Specific framework choice",
+    "infra": "Specific hosting infrastructure"
+  }
+}
+
+Zero phrases copied from this prompt. Every name must reference the venture concept.`
+    });
+  }
+
+  private buildFinanceSubagent(llmProvider: GroqProvider, contextLLM: GroqProvider): DelegateTool {
+    const tools: BaseTool[] = [
+      new EstimateCostsTool(),
+      new PriceStrategyTool(),
+      new BreakEvenAnalysisTool(),
+      new LtvCacEstimatorTool(),
+      new SubscriptionCalculatorTool(),
+      new EstimateValuationTool()
+    ];
+    for (const t of tools) t.setLLMProvider(contextLLM);
+    return new DelegateTool({
+      domain: 'finance',
+      llmProvider,
+      tools,
+      systemPrompt: `You are the finance subagent for Foundry AI.
+
+You MUST call finance_estimate_costs with sensible inputs for the venture. Pick devTeamSize and serverInfraLevel appropriate for the venture's stage. Choose inputs that produce a realistic monthly OPEX in the $20k-$80k range for an early-stage venture.
+
+Then call finance_price_strategy with the competitor average price. For SMB-targeted SaaS, $30-$80 is a reasonable average; for enterprise, $200-$500.
+
+Return a single JSON block (enclosed in \`\`\`json and \`\`\`) with this exact shape:
+{
+  "monthlyOpexEstimate": <number from finance_estimate_costs>,
+  "pricingStrategy": [
+    { "planName": "Starter", "price": <number> },
+    { "planName": "Pro", "price": <number> },
+    { "planName": "Enterprise", "price": <number> }
+  ]
+}
+
+All numbers must come from tool outputs. Do not invent values.`
+    });
   }
 
   @Get('tools')
   getTools() {
-    const registry = this.buildToolRegistry();
+    const registry = this.buildCatalogRegistry();
     const tools = registry.getAllTools().map(t => ({
       name: t.name,
       description: t.description,
       namespace: t.namespace
     }));
+    const byNamespace: Record<string, number> = {};
+    for (const t of tools) {
+      byNamespace[t.namespace] = (byNamespace[t.namespace] || 0) + 1;
+    }
     return {
       count: tools.length,
+      byNamespace,
       tools
     };
   }
 
-  @Post('run')
-  async runAgent(@Body('concept') concept: string) {
-    const logs: { timestamp: string; level: string; message: string; meta?: any }[] = [];
-    const logCallback = async (level: string, message: string, meta?: any) => {
-      logs.push({
-        timestamp: new Date().toISOString(),
-        level,
-        message,
-        meta
-      });
-    };
-
-    const registry = this.buildToolRegistry();
-
-    const envPaths = [
-      require('path').resolve(__dirname, '../../../.env'),
-      require('path').resolve(__dirname, '../../../../.env'),
-      require('path').resolve(process.cwd(), '../../.env'),
-      require('path').resolve(process.cwd(), '.env')
-    ];
-    for (const p of envPaths) {
-      if (require('fs').existsSync(p)) {
-        require('dotenv').config({ path: p });
-        break;
-      }
-    }
-
-    const llmProvider = new GroqProvider();
-    const ceoAgent = new Agent({
-      name: 'CEO-Parent',
-      systemPrompt: `You are the lead CEO Agent of Foundry AI. Your job is to orchestrate a venture blueprint document for the user's specific concept.
-      You must coordinate and delegate research, product, engineering, and finance tasks. You have registered tools, but note that the tools may return generic mockup templates. You MUST override any generic mock tool outputs with your own extensive pre-trained knowledge to produce highly realistic, detailed, and customized data.
-      NEVER output generic placeholders (like "Competitor A", "Competitor B", "Auth Service", "Data Ingestion Service", "REQ-001", or code scanning requirements if the concept is not a code scanner).
-      Instead, generate real-world competitors (e.g., if the concept is cash flow forecasting, search for or list actual competitors like QuickBooks, Float, Pulse, Anaplan), real-world modules (e.g., Financial Modeling Engine, Scenario Simulator, QuickBooks Integration Sync), and realistic financial operational expenses (Opex) and pricing plans suitable for the market.
-      
-      CRITICAL INSTRUCTION: You MUST output ONLY a valid JSON block enclosed in \`\`\`json and \`\`\`. Do NOT include any conversational filler, introductory text, markdown headings, or explanations before or after the JSON block.
-      
-      JSON Schema Structure:
-      {
-        "concept": "A concise description of the customized venture concept",
-        "namespacesCovered": ["system", "research", "product", "engineering", "finance"],
-        "productRequirements": [
-          "Highly detailed, specific functional requirement 1",
-          "Highly detailed, specific functional requirement 2",
-          "Highly detailed, specific non-functional requirement 1",
-          "Highly detailed, specific non-functional requirement 2"
-        ],
-        "architectureModules": [
-          "Specific Microservice/Module 1 suitable for the concept",
-          "Specific Microservice/Module 2 suitable for the concept",
-          "Specific Database or caching system chosen for the concept",
-          "Specific Third-party integration or gateway chosen for the concept"
-        ],
-        "financialModel": {
-          "monthlyOpexEstimate": 15000,
-          "pricingStrategy": [
-            { "planName": "Basic", "price": 49 },
-            { "planName": "Pro", "price": 149 },
-            { "planName": "Enterprise", "price": 499 }
+  @Get('agents')
+  getAgentTopology() {
+    return {
+      ceo: {
+        name: 'CEO-Parent',
+        role: 'Orchestrator. Plans the venture blueprint and delegates to four specialist subagents.',
+        delegateTools: [
+          'delegate_to_research',
+          'delegate_to_product',
+          'delegate_to_engineering',
+          'delegate_to_finance'
+        ]
+      },
+      subagents: [
+        {
+          name: 'research-subagent',
+          domain: 'research',
+          tools: [
+            'research_web_search', 'research_scrape_url', 'research_analyze_trends',
+            'research_competitor_analysis', 'research_search_trends', 'research_get_news',
+            'research_analyze_sentiment'
           ]
         },
-        "competitors": [
-          "Real competitor company name 1",
-          "Real competitor company name 2",
-          "Real competitor company name 3"
-        ]
-      }`,
-      toolRegistry: registry,
-      llmProvider
-    });
+        {
+          name: 'product-subagent',
+          domain: 'product',
+          tools: [
+            'product_define_requirements', 'product_write_user_stories', 'product_define_persona',
+            'product_prioritize_backlog', 'product_map_user_journey', 'product_compare_features'
+          ]
+        },
+        {
+          name: 'engineering-subagent',
+          domain: 'engineering',
+          tools: [
+            'engineering_architect_system', 'engineering_select_tech_stack', 'engineering_generate_schema',
+            'engineering_generate_routes', 'engineering_estimate_loc', 'engineering_audit_security'
+          ]
+        },
+        {
+          name: 'finance-subagent',
+          domain: 'finance',
+          tools: [
+            'finance_estimate_costs', 'finance_price_strategy', 'finance_break_even_analysis',
+            'finance_ltv_cac_estimator', 'finance_subscription_calculator', 'finance_estimate_valuation'
+          ]
+        }
+      ]
+    };
+  }
 
-    const context: AgentContext = {
-      runId: randomUUID(),
-      log: logCallback
+  @Post('run')
+  async runAgent(@Body('concept') concept: string): Promise<OrchestratorResult> {
+    const logs: TraceEvent[] = [];
+    const traceLog = async (level: string, message: string, meta?: any) => {
+      logs.push({ timestamp: new Date().toISOString(), level, message, meta });
     };
 
+    loadEnv();
+
+    const runId = randomUUID();
+    const context: AgentContext = { runId, log: traceLog };
+
     try {
-      await logCallback('info', `CEO-Parent run started with concept: "${concept}"`);
-      const response = await ceoAgent.run(`Generate a full venture blueprint document for: ${concept}. Remember to end with the \`\`\`json block.`, context);
+      await traceLog('info', `Orchestrator run started for concept: "${concept}"`, { agent: 'CEO-Parent', runId });
 
-      const responseContent = response.content || '';
-      
-      // Attempt to parse the JSON block dynamically
+      const keys = (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(k => k);
+      const ceoProvider = new GroqProvider({ apiKeys: keys, model: 'llama-3.3-70b-versatile' });
+      const subagentProvider = new GroqProvider({ apiKeys: keys, model: 'llama-3.1-8b-instant' });
+      const toolProvider = new GroqProvider({ apiKeys: keys, model: 'llama-3.1-8b-instant' });
+
+      const ceoRegistry = new ToolRegistry();
+      ceoRegistry.registerTool(this.buildResearchSubagent(subagentProvider, toolProvider));
+      ceoRegistry.registerTool(this.buildProductSubagent(subagentProvider, toolProvider));
+      ceoRegistry.registerTool(this.buildEngineeringSubagent(subagentProvider, toolProvider));
+      ceoRegistry.registerTool(this.buildFinanceSubagent(subagentProvider, toolProvider));
+
+      const ceo = new Agent({
+        name: 'CEO-Parent',
+        systemPrompt: `You are the lead CEO orchestrator agent for Foundry AI. You build a venture blueprint by delegating work to four specialist subagents in parallel.
+
+Your ONLY tools are the four delegate_to_* subagent tools. You MUST call all four subagents in parallel in a single response, then synthesize their JSON outputs into a final blueprint.
+
+Process:
+1. On your FIRST turn, call all four delegate_to_* tools in a single response. Pass each a self-contained task that includes the venture concept and any context it needs. Do not invent data yourself.
+2. After the four subagent responses return, synthesize them into a single JSON blueprint with this exact shape:
+   {
+     "concept": "<venture concept>",
+     "namespacesCovered": ["system", "research", "product", "engineering", "finance"],
+     "productRequirements": [<from product subagent>],
+     "architectureModules": [<from engineering subagent>],
+     "financialModel": { "monthlyOpexEstimate": <number>, "pricingStrategy": [...] },
+     "competitors": [<from research subagent>],
+     "namespacesJustification": {
+       "system": "<one-line note>",
+       "research": "<one-line note>",
+       "product": "<one-line note>",
+       "engineering": "<one-line note>",
+       "finance": "<one-line note>"
+     }
+   }
+3. Output ONLY the final JSON block enclosed in \`\`\`json and \`\`\`. No prose before or after.
+
+Do not skip subagents. Do not fabricate competitor names or financial numbers — if the research subagent returned an empty competitors array, use an empty array in the blueprint. Never invent competitor names yourself.`,
+        toolRegistry: ceoRegistry,
+        llmProvider: ceoProvider
+      });
+
+      const response = await ceo.run(
+        `Build a complete venture blueprint for: ${concept}. Call all four subagents in parallel on your first turn, then synthesize their JSON outputs into the final blueprint.`,
+        context
+      );
+
+      const blueprint = response.content || '';
+      await traceLog('info', `CEO-Parent finished`, { agent: 'CEO-Parent', iterations: response.iterations, runId });
+
+      const subagentRuns = logs
+        .filter(l => l.meta?.subrunId && typeof l.meta.subrunId === 'string' && l.meta.subrunId.startsWith(runId + '/'))
+        .reduce<Record<string, number>>((acc, l) => {
+          const id = l.meta.subrunId as string;
+          if (l.meta.iterations) acc[id] = l.meta.iterations;
+          return acc;
+        }, {});
+
+      const subagentSummary = Object.values(subagentRuns).length
+        ? Object.entries(subagentRuns).map(([id, iters]) => ({
+            name: id.split('/')[1]?.split('-').slice(0, -1).join('-') + '-subagent' || 'unknown',
+            iterations: iters
+          }))
+        : [];
+
       let parsedBlueprint: any = {
-        concept: concept,
+        concept,
         namespacesCovered: ['system', 'research', 'product', 'engineering', 'finance'],
-        productRequirements: [
-          'Real-time automated code vulnerability scanning',
-          'Integration with GitHub/GitLab CI/CD pipelines',
-          'AI-driven auto-remediation patch generation',
-          'Role-based access control and enterprise SSO',
-          'Compliance reporting (SOC2, HIPAA, GDPR)'
-        ],
-        architectureModules: [
-          'Authentication & Authz Gateway (NextAuth/OAuth2)',
-          'Static Analysis Scanning Engine (Go/Rust)',
-          'LLM Patch Generation Service (Python/FastAPI)',
-          'Asynchronous Job Queue (Redis/BullMQ)',
-          'Telemetry & Audit Logging (OpenTelemetry/Elasticsearch)'
-        ],
-        financialModel: { 
-          monthlyOpexEstimate: 14500, 
-          pricingStrategy: [
-            { planName: 'Developer', price: 0 },
-            { planName: 'Team', price: 49 },
-            { planName: 'Enterprise', price: 499 }
-          ] 
-        },
-        competitors: [
-          'Snyk',
-          'SonarQube',
-          'GitHub Advanced Security',
-          'Checkmarx'
-        ]
+        productRequirements: [],
+        architectureModules: [],
+        financialModel: { monthlyOpexEstimate: 0, pricingStrategy: [] },
+        competitors: []
       };
-
       try {
-        const markdownMatch = responseContent.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
-        let jsonText = '';
-        if (markdownMatch) {
-          jsonText = markdownMatch[1];
-        } else {
-          const firstBrace = responseContent.indexOf('{');
-          const lastBrace = responseContent.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-             jsonText = responseContent.substring(firstBrace, lastBrace + 1);
-          } else {
-             jsonText = responseContent;
-          }
-        }
+        const md = blueprint.match(/```(?:json|JSON)?\s*([\s\S]*?)\s*```/);
+        const jsonText = md ? md[1] : (() => {
+          const a = blueprint.indexOf('{'); const b = blueprint.lastIndexOf('}');
+          return a !== -1 && b !== -1 && b > a ? blueprint.substring(a, b + 1) : blueprint;
+        })();
         parsedBlueprint = JSON.parse(jsonText.trim());
-        await logCallback('info', `Successfully parsed dynamic JSON blueprint for evaluation.`);
+        await traceLog('info', `Parsed final blueprint JSON`, { agent: 'CEO-Parent' });
       } catch (parseError: any) {
-        await logCallback('warn', `Failed to parse agent JSON block: ${parseError.message}. Using default structural grading.`);
+        await traceLog('warn', `Failed to parse final JSON: ${parseError.message}. Using fallback blueprint.`, { agent: 'CEO-Parent' });
       }
 
       const goldStandard = {
-        financialModel: {
-          monthlyOpexEstimate: 15000,
-          pricingStrategy: [{ planName: 'Starter', price: 30 }]
-        }
+        financialModel: { monthlyOpexEstimate: 15000, pricingStrategy: [{ planName: 'Starter', price: 30 }] }
       };
-
-      const evalResult = EvaluationHarness.evaluate(parsedBlueprint, goldStandard);
+      const evaluation = EvaluationHarness.evaluate(parsedBlueprint, goldStandard);
 
       return {
         success: true,
-        runId: context.runId,
-        blueprint: responseContent,
-        evaluation: evalResult,
-        logs
+        runId,
+        blueprint,
+        evaluation,
+        logs,
+        trace: {
+          ceoIterations: response.iterations,
+          subagents: subagentSummary
+        }
       };
     } catch (error: any) {
-      await logCallback('error', `Agent execution failed due to API limits (${error.message}). Activating Demo Mode Fallback.`);
-      
-      const parsedBlueprint: any = {
-        concept: concept,
-        namespacesCovered: ['system', 'research', 'product', 'engineering', 'finance'],
-        productRequirements: [
-          'Real-time automated code vulnerability scanning',
-          'Integration with GitHub/GitLab CI/CD pipelines',
-          'AI-driven auto-remediation patch generation',
-          'Role-based access control and enterprise SSO',
-          'Compliance reporting (SOC2, HIPAA, GDPR)'
-        ],
-        architectureModules: [
-          'Authentication & Authz Gateway (NextAuth/OAuth2)',
-          'Static Analysis Scanning Engine (Go/Rust)',
-          'LLM Patch Generation Service (Python/FastAPI)',
-          'Asynchronous Job Queue (Redis/BullMQ)',
-          'Telemetry & Audit Logging (OpenTelemetry/Elasticsearch)'
-        ],
-        financialModel: { 
-          monthlyOpexEstimate: 14500, 
-          pricingStrategy: [
-            { planName: 'Developer', price: 0 },
-            { planName: 'Team', price: 49 },
-            { planName: 'Enterprise', price: 499 }
-          ] 
-        },
-        competitors: [
-          'Snyk',
-          'SonarQube',
-          'GitHub Advanced Security',
-          'Checkmarx'
-        ]
-      };
-
-      const goldStandard = {
-        financialModel: {
-          monthlyOpexEstimate: 15000,
-          pricingStrategy: [{ planName: 'Starter', price: 30 }]
-        }
-      };
-
-      const evalResult = EvaluationHarness.evaluate(parsedBlueprint, goldStandard);
-
+      await traceLog('error', `Orchestrator failed: ${error.message}`, { agent: 'CEO-Parent', error: error.message });
       return {
-        success: true,
-        runId: context.runId,
-        blueprint: JSON.stringify(parsedBlueprint, null, 2),
-        evaluation: evalResult,
-        logs
+        success: false,
+        runId,
+        blueprint: '',
+        logs,
+        trace: { ceoIterations: 0, subagents: [] },
+        error: error.message
       };
     }
   }
 }
-

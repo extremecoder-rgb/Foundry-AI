@@ -1,4 +1,4 @@
-import { BaseTool, AgentContext } from '@foundry/agent-core';
+import { BaseTool, AgentContext, generateStructuredJson } from '@foundry/agent-core';
 import { z } from 'zod';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -9,19 +9,37 @@ export interface SearchResult {
   snippet: string;
 }
 
+const FORBIDDEN_TOKENS = [
+  'competitor', 'competitors', 'insights', 'market leaders', 'incumbentcorp',
+  'fastscale', 'nichetech', 'tbd', 'n/a', 'unknown', 'placeholder', 'example inc',
+  'industry leaders', 'top players', 'key players', 'main players'
+];
+
+function looksLikeCompanyName(s: string): boolean {
+  const t = s.trim();
+  if (t.length < 2 || t.length > 60) return false;
+  if (/^https?:/i.test(t)) return false;
+  const lower = t.toLowerCase();
+  if (FORBIDDEN_TOKENS.some(tok => lower === tok || lower.includes(tok))) return false;
+  if (/^(the|a|an)\s/i.test(t) && t.split(/\s+/).length < 3) return false;
+  return true;
+}
+
 export class WebSearchTool extends BaseTool<
   { query: string },
-  { results: SearchResult[] }
+  { results: SearchResult[]; searchUnavailable?: boolean; reason?: string }
 > {
   name = 'research_web_search';
-  description = 'Search the web for pages matching the query, returning titles, URLs, and snippets.';
+  description = 'Search the web for pages matching the query, returning titles, URLs, and snippets. Uses DuckDuckGo HTML and falls back to Wikipedia. Returns searchUnavailable=true if both fail.';
   namespace = 'research';
   schema = z.object({
     query: z.string().describe('The search query to execute.')
   });
 
-  async execute(input: { query: string }, context: AgentContext): Promise<{ results: SearchResult[] }> {
+  async execute(input: { query: string }, context: AgentContext): Promise<{ results: SearchResult[]; searchUnavailable?: boolean; reason?: string }> {
     console.log(`[WebSearchTool] Searching for: "${input.query}"`);
+    const results: SearchResult[] = [];
+
     try {
       const response = await axios.get(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(input.query)}`, {
         headers: {
@@ -31,10 +49,8 @@ export class WebSearchTool extends BaseTool<
       });
 
       const $ = cheerio.load(response.data);
-      const results: SearchResult[] = [];
-
       $('.result').each((i, element) => {
-        if (i >= 5) return; // Limit to top 5 results
+        if (results.length >= 5) return;
         const title = $(element).find('.result__a').text().trim();
         const url = $(element).find('.result__url').text().trim();
         const snippet = $(element).find('.result__snippet').text().trim();
@@ -47,59 +63,36 @@ export class WebSearchTool extends BaseTool<
           });
         }
       });
+    } catch (e: any) {
+      console.warn('[WebSearchTool] DuckDuckGo failed:', e.message);
+    }
 
-      if (results.length === 0) {
-        console.log(`[WebSearchTool] DuckDuckGo returned 0 results. Querying Wikipedia API...`);
-        try {
-          const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(input.query)}&format=json&origin=*`;
-          const wikiResponse = await axios.get(wikiUrl, { timeout: 4000 });
-          const wikiData = wikiResponse.data;
-          const wikiList = wikiData.query?.search || [];
-          
-          for (const item of wikiList.slice(0, 5)) {
-            const cleanSnippet = item.snippet.replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '').trim();
-            results.push({
-              title: item.title,
-              url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
-              snippet: cleanSnippet
-            });
-          }
-        } catch (wikiErr: any) {
-          console.warn('[WebSearchTool] Wikipedia fallback failed:', wikiErr.message);
+    if (results.length === 0) {
+      try {
+        const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(input.query)}&format=json&origin=*`;
+        const wikiResponse = await axios.get(wikiUrl, { timeout: 4000 });
+        const wikiList = wikiResponse.data?.query?.search || [];
+        for (const item of wikiList.slice(0, 5)) {
+          const cleanSnippet = (item.snippet || '').replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '').trim();
+          results.push({
+            title: item.title,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
+            snippet: cleanSnippet
+          });
         }
+      } catch (wikiErr: any) {
+        console.warn('[WebSearchTool] Wikipedia fallback failed:', wikiErr.message);
       }
+    }
 
-      if (results.length === 0) {
-        // Ultimate fallback mock results if everything fails
-        return {
-          results: [
-            {
-              title: `Insights on ${input.query}`,
-              url: 'https://example.com/insights',
-              snippet: `Market data and detailed information regarding ${input.query}. Key drivers include growth in digital transformation and automation.`
-            },
-            {
-              title: `Competitors in ${input.query}`,
-              url: 'https://example.com/competitors',
-              snippet: `A report on the leading firms competing in the ${input.query} space, showing market shares and technology stacks.`
-            }
-          ]
-        };
-      }
-
-      return { results };
-    } catch (error: any) {
-      console.warn('[WebSearchTool] Search failed, returning fallback results. Error:', error.message);
-      // Fallback
+    if (results.length === 0) {
       return {
-        results: [
-          {
-            title: `Search Fallback: ${input.query}`,
-            url: 'https://fallback-search.com',
-            snippet: `Placeholder search result for "${input.query}" due to network or scraping timeout.`
-          }
-        ]
+        results: [],
+        searchUnavailable: true,
+        reason: 'Both DuckDuckGo and Wikipedia returned no results. The venture concept may be too niche or the search backend is unreachable.'
       };
     }
+
+    return { results, searchUnavailable: false };
   }
 }

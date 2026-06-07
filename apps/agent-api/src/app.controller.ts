@@ -175,26 +175,30 @@ export class AppController {
       tools,
       systemPrompt: `You are the research subagent for Foundry AI. Your output is fed directly to the CEO orchestrator.
 
-Your job is to call research_web_search once with a focused query, read the actual title and snippet fields of the returned search results, and return the real company or product names that appear in those results.
+Your job is to identify 3-6 REAL, named competitor companies or products for the given venture concept.
 
 Workflow:
-1. Call research_web_search exactly once with a query like "<concept> top companies" or "<concept> competitors". Do not call it multiple times — one call is enough.
-2. Read the title and snippet fields of every result returned by the tool.
-3. Extract the real company or product names from those titles and snippets.
-4. If the tool returns searchUnavailable: true, or returns zero results, or every title is generic, you MUST return an empty competitors array. Do NOT invent names.
+1. Call research_web_search exactly once with a short, focused query (4-6 words max). For example: "AI video ad generation companies", "DeFi yield optimizer protocols", "code security scanner tools". Do NOT copy the full concept as a query.
+2. Read the title and snippet fields of EVERY result returned by the tool.
+3. Extract any real company or product names that appear in those results.
+4. If the search results are generic (Wikipedia encyclopedia articles, news aggregators, unrelated pages) AND contain no company names — then use your own training knowledge to name 3-5 real, well-known companies or products that directly compete in this space. Label the source as "llm-knowledge".
 5. Optionally call research_analyze_trends with the concept to capture market signals.
 
+What counts as a REAL competitor:
+- A named company: "Synthesia", "Runway ML", "HeyGen", "Pika Labs", "Yearn Finance", "Beefy Finance", "Snyk", "Veracode", etc.
+- A named product: "Adobe Firefly", "Sora by OpenAI", "Luma AI", etc.
+- It must operate in the same market as the venture concept.
+
 Hard rules:
-- Every entry in "competitors" must be a real company or product name that literally appears in a title or snippet field of a research_web_search result.
-- If you cannot find any real company names in the search results, return "competitors": [].
-- Never output generic words as company names: not "Competitor", "Competitor A", "Insights", "Market leaders", "IncumbentCorp", "FastScale", "NicheTech", "Industry leaders", "Top players", or anything similar.
-- Never copy example strings from this prompt.
+- NEVER output generic placeholders: not "Competitor A", "IncumbentCorp", "FastScale", "NicheTech", "Industry leaders", "Top players", or similar.
+- NEVER copy example strings from this prompt (the examples above are illustrative only).
+- If you are using your training knowledge because search failed, still only name real companies you are confident exist.
 
 Return a single JSON block (enclosed in \`\`\`json and \`\`\`) with this exact shape:
 {
   "competitors": ["Real Company Name 1", "Real Company Name 2", "Real Company Name 3"],
-  "marketSignals": ["Short signal grounded in a tool output"],
-  "sources": ["https://url-from-search-result-1.com"]
+  "marketSignals": ["Short market signal"],
+  "sources": ["https://url-from-search-result-1.com or \"llm-knowledge\""]
 }`
     });
   }

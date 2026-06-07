@@ -13,7 +13,7 @@ The system is housed in a Turborepo monorepo, cleanly dividing responsibilities:
 
 ## Fulfilling Hackathon Constraints
 1. **60+ Unique Tools & 5 Namespaces:** The system implements exactly 60 distinct tools spanning across `System` (FS/OS tools), `Research` (Search, Crawl, Scrape, Trends), `Product` (User Journeys, NPS, Roadmaps), `Engineering` (Scaffolding, Schema, Linters), and `Finance` (Pricing, Break-Even, Valuation). 
-2. **Context-Isolated Subagents:** The `spawn_subagent` tool instantiates a child instance of the `Agent` class with a completely isolated `AgentContext` and history state. Subagents execute independently and return only their final structured artifact to the parent, preventing context pollution.
+2. **Context-Isolated Subagents:** The `delegate_to_*` tools instantiate child instances of the `Agent` class with a completely isolated `AgentContext` and history state. Subagents execute independently and return only their final structured artifact to the parent, preventing context pollution.
 3. **Long-Horizon Execution:** The system supports 20+ continuous tool calls without degradation, guarded by history summarization and resilient exponential backoff retry mechanisms on external integrations.
 4. **Production Hardening:** Native OpenTelemetry (`@opentelemetry/api`) traces spans and decision graphs. Built-in rate limiters restrict tool call velocity to avoid hitting API rate limits.
 5. **Evaluation Harness:** A dedicated `EvaluationHarness` automatically grades generated blueprints against structured gold standards, programmatically ensuring output completeness, architectural accuracy, and realistic financial projections.

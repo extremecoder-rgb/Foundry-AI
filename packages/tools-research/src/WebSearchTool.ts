@@ -25,6 +25,37 @@ function looksLikeCompanyName(s: string): boolean {
   return true;
 }
 
+function simplifyQuery(query: string): string[] {
+  // Lowercase and clean punctuation
+  let clean = query.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, " ").replace(/\s+/g, " ").trim();
+  
+  // Remove common prefix/suffix fillers
+  const stopWords = new Set([
+    'a', 'an', 'the', 'of', 'for', 'in', 'on', 'at', 'by', 'with', 'about', 'to', 'from',
+    'competitors', 'competitor', 'companies', 'company', 'startup', 'startups', 'platforms',
+    'platform', 'software', 'tool', 'tools', 'service', 'services', 'system', 'systems', 'engine',
+    'engines', 'toolkit', 'toolkits', 'top', 'best', 'popular', 'list', 'of', 'leading', 'analyze', 'analysis',
+    'market', 'trends', 'signals', 'for'
+  ]);
+
+  // If there are conjunctions like "and", "or", "vs", "versus", split them to search separately
+  const parts = clean.split(/\s+(?:and|or|vs|versus)\s+/i);
+  const queries: string[] = [];
+  
+  for (const part of parts) {
+    const words = part.split(/\s+/).filter(w => !stopWords.has(w.toLowerCase()));
+    if (words.length > 0) {
+      queries.push(words.join(' '));
+    }
+  }
+  
+  // If we ended up with nothing, fallback to original query
+  if (queries.length === 0) {
+    return [query];
+  }
+  return queries;
+}
+
 export class WebSearchTool extends BaseTool<
   { query: string },
   { results: SearchResult[]; searchUnavailable?: boolean; reason?: string }
@@ -39,49 +70,61 @@ export class WebSearchTool extends BaseTool<
   async execute(input: { query: string }, context: AgentContext): Promise<{ results: SearchResult[]; searchUnavailable?: boolean; reason?: string }> {
     console.log(`[WebSearchTool] Searching for: "${input.query}"`);
     const results: SearchResult[] = [];
+    const searchQueries = simplifyQuery(input.query);
+    console.log(`[WebSearchTool] Simplified queries:`, searchQueries);
 
-    try {
-      const response = await axios.get(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(input.query)}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
-        timeout: 5000
-      });
+    for (const q of searchQueries.slice(0, 2)) {
+      try {
+        const response = await axios.get(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          },
+          timeout: 5000
+        });
 
-      const $ = cheerio.load(response.data);
-      $('.result').each((i, element) => {
-        if (results.length >= 5) return;
-        const title = $(element).find('.result__a').text().trim();
-        const url = $(element).find('.result__url').text().trim();
-        const snippet = $(element).find('.result__snippet').text().trim();
+        const $ = cheerio.load(response.data);
+        $('.result').each((i, element) => {
+          const title = $(element).find('.result__a').text().trim();
+          const url = $(element).find('.result__url').text().trim();
+          const snippet = $(element).find('.result__snippet').text().trim();
 
-        if (title && snippet) {
-          results.push({
-            title,
-            url: url.startsWith('http') ? url : `https://${url}`,
-            snippet
-          });
-        }
-      });
-    } catch (e: any) {
-      console.warn('[WebSearchTool] DuckDuckGo failed:', e.message);
+          if (title && snippet) {
+            const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+            // Avoid duplicates
+            if (!results.some(r => r.url === cleanUrl || r.title === title)) {
+              results.push({
+                title,
+                url: cleanUrl,
+                snippet
+              });
+            }
+          }
+        });
+      } catch (e: any) {
+        console.warn(`[WebSearchTool] DuckDuckGo failed for query "${q}":`, e.message);
+      }
     }
 
     if (results.length === 0) {
-      try {
-        const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(input.query)}&format=json&origin=*`;
-        const wikiResponse = await axios.get(wikiUrl, { timeout: 4000 });
-        const wikiList = wikiResponse.data?.query?.search || [];
-        for (const item of wikiList.slice(0, 5)) {
-          const cleanSnippet = (item.snippet || '').replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '').trim();
-          results.push({
-            title: item.title,
-            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`,
-            snippet: cleanSnippet
-          });
+      for (const q of searchQueries.slice(0, 2)) {
+        try {
+          const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*`;
+          const wikiResponse = await axios.get(wikiUrl, { timeout: 4000 });
+          const wikiList = wikiResponse.data?.query?.search || [];
+          for (const item of wikiList.slice(0, 5)) {
+            const cleanSnippet = (item.snippet || '').replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '').trim();
+            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
+            if (!results.some(r => r.url === url || r.title === item.title)) {
+              results.push({
+                title: item.title,
+                url,
+                snippet: cleanSnippet
+              });
+            }
+          }
+        } catch (wikiErr: any) {
+          console.warn(`[WebSearchTool] Wikipedia fallback failed for query "${q}":`, wikiErr.message);
         }
-      } catch (wikiErr: any) {
-        console.warn('[WebSearchTool] Wikipedia fallback failed:', wikiErr.message);
       }
     }
 
@@ -93,6 +136,7 @@ export class WebSearchTool extends BaseTool<
       };
     }
 
-    return { results, searchUnavailable: false };
+    // Limit to top 6 merged results
+    return { results: results.slice(0, 6), searchUnavailable: false };
   }
 }

@@ -181,7 +181,7 @@ Workflow:
 1. Call research_web_search exactly once with a short, focused query (4-6 words max). For example: "AI video ad generation companies", "DeFi yield optimizer protocols", "code security scanner tools". Do NOT copy the full concept as a query.
 2. Read the title and snippet fields of EVERY result returned by the tool.
 3. Extract any real company or product names that appear in those results.
-4. If the search results are generic (Wikipedia encyclopedia articles, news aggregators, unrelated pages) AND contain no company names — then use your own training knowledge to name 3-5 real, well-known companies or products that directly compete in this space. Label the source as "llm-knowledge".
+4. You MUST return at least 3 and up to 6 competitors. If the search results give you fewer than 3 companies, use your own training knowledge to fill the remaining slots with real, well-known companies or products that directly compete in this space. Label the source as "llm-knowledge".
 5. Optionally call research_analyze_trends with the concept to capture market signals.
 
 What counts as a REAL competitor:

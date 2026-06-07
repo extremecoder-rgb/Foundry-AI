@@ -109,7 +109,12 @@ export class WebSearchTool extends BaseTool<
       for (const q of searchQueries.slice(0, 2)) {
         try {
           const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*`;
-          const wikiResponse = await axios.get(wikiUrl, { timeout: 4000 });
+          const wikiResponse = await axios.get(wikiUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            timeout: 4000
+          });
           const wikiList = wikiResponse.data?.query?.search || [];
           for (const item of wikiList.slice(0, 5)) {
             const cleanSnippet = (item.snippet || '').replace(/<span class="searchmatch">/g, '').replace(/<\/span>/g, '').trim();

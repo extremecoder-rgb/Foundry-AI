@@ -64,4 +64,4 @@ Foundry AI utilizes an internal grading metric that verifies blueprints against 
 5. Market Competitors Accurately Identified
 
 ## 📄 License
-UNLICENSED - Built by Extreme Coder RGB
+UNLICENSED - Built by Subhranil Mondal
